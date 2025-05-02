@@ -50,7 +50,7 @@ RPG Suite follows a modern WordPress plugin architecture:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rpg-suite.git
+git clone https://github.com/TortoiseWolfe/RPG-Suite.git
 cd rpg-suite
 
 # Install dependencies
@@ -77,4 +77,4 @@ GPL-2.0+
 
 ## Credits
 
-Developed by [Your Name/Organization]
+Developed by TortoiseWolfe

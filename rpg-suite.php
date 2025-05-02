@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: RPG Suite
- * Plugin URI: https://github.com/YOUR-USERNAME/RPG-Suite
+ * Plugin URI: https://github.com/TortoiseWolfe/RPG-Suite
  * Description: A comprehensive WordPress plugin package for creating RPG/tabletop-style adventure games with subsystems including health, geolocation, dice, inventory, combat, and quests.
  * Version: 0.1.0
- * Author: Your Name
- * Author URI: https://yourwebsite.com
+ * Author: TortoiseWolfe
+ * Author URI: https://github.com/TortoiseWolfe
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: rpg-suite
