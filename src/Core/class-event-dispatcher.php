@@ -45,7 +45,12 @@ class Event_Dispatcher {
         // Allow post-event processing
         do_action('rpg_suite_after_' . $event_name, $filtered_event);
         
-        return $filtered_event->get_data();
+        // Check if the filtered event is valid before returning its data
+        if ($filtered_event instanceof Event) {
+            return $filtered_event->get_data();
+        }
+        
+        return $event_data;
     }
 
     /**
