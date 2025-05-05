@@ -91,6 +91,125 @@
 - Use BuddyPress activity stream for game events
 - Build on top of friends system for party mechanics
 
+#### BuddyPress Profile Integration Plan
+1. **Character Display in Profiles**
+   - Add character header to profile (name, type, health bar)
+   - Create character switcher widget for users with multiple characters
+   - Display active character stats on profile
+   - Style integration matching BuddyX theme
+
+2. **Implementation Approach**
+   - Add profile hooks in Core class:
+     - `bp_before_member_header_meta` - for character header
+     - `bp_member_header_actions` - for character switcher
+     - `bp_after_profile_loop_content` - for detailed character sheet
+   - Add custom CSS for RPG styling in profile
+   - Create BP_Component subclass for dedicated Character tab
+
+3. **Data Flow**
+   - Character data stored in custom `rpg_character_attributes` table
+   - Character stats displayed from live data (no duplication in xprofile)
+   - Character portrait as BuddyPress avatar or separate featured image
+
+4. **Visual Elements**
+   - Health bar styled to match theme (leverage existing Health::render_health_shortcode)
+   - Character type icon/badge (using dashicons like in admin UI)
+   - Quick stat display in profile header
+   - Full character sheet in dedicated tab
+   - Steampunk styling elements throughout
+
+5. **Next Implementation Steps**
+   - Create template function to get active character for current profile
+   - Add BP hooks in Core subsystem's init method
+   - Create CSS for profile integration
+   - Add character display in bp_before_member_header_meta hook
+   - Add character switcher in bp_member_header_actions
+   - Create demo character installation script for testing
+
+6. **Demo Character Script**
+   - Create script `scripts/install-demo-characters.php`
+   - Script should create:
+     - Multiple character types (Sky Pirate, Inventor, Diplomat, etc.)
+     - 3 diverse characters with different stats assigned to admin
+     - Set one character as active
+     - Configure character health attributes
+   - Make script executable within Docker environment
+   - Include RPG stat values appropriate for steampunk setting
+
+7. **BuddyPress Integration Class**
+   - Create file `/src/Core/Components/class-profile-integration.php`
+   - Class structure:
+     ```php
+     namespace RPG\Suite\Core\Components;
+     
+     class Profile_Integration {
+         // Core reference
+         private $core;
+         
+         // Constructor (get Core reference)
+         public function __construct() {...}
+         
+         // Initialize hooks
+         public function init() {...}
+         
+         // Display character in profile header
+         public function display_character_header() {...}
+         
+         // Display character switcher
+         public function display_character_switcher() {...}
+         
+         // Handle character switching
+         public function handle_character_switch() {...}
+         
+         // Register character tab
+         public function register_character_tab() {...}
+         
+         // Add profile CSS
+         public function add_profile_css() {...}
+         
+         // Utility functions
+         private function get_active_character($user_id) {...}
+         private function get_character_health($character_id) {...}
+     }
+     ```
+   - Register in Core class init method when BuddyPress is active
+
+8. **Visual Components and Templates**
+   - Create template directory: `/src/Core/Components/templates/`
+   - Create template files:
+     - `character-header.php` - Character display in profile header
+     - `character-switcher.php` - UI for switching between characters
+     - `character-tab-content.php` - Full character sheet for tab
+     - `character-health-bar.php` - Health bar template
+   - Create CSS file: `/assets/css/rpg-profile.css`
+   - CSS should include:
+     - Character portrait frame with steampunk styling
+     - Health bar with gradient colors and animations
+     - Character type/class badge styles
+     - Stat display with appropriate icons
+     - Overall theme integration with BuddyX
+   - Use dashicons or custom SVG icons for character attributes
+
+9. **BuddyPress Integration Hooks**
+   - Key WordPress/BuddyPress hooks to implement:
+     ```php
+     // Profile header - top section of BP profile
+     add_action('bp_before_member_header_meta', [$this, 'display_character_header']);
+     
+     // Profile actions - buttons beneath avatar
+     add_action('bp_member_header_actions', [$this, 'display_character_switcher']);
+     
+     // Profile navigation - add character tab
+     add_action('bp_setup_nav', [$this, 'register_character_tab']);
+     
+     // CSS and JavaScript
+     add_action('wp_enqueue_scripts', [$this, 'add_profile_css']);
+     
+     // Character switching - process form submission
+     add_action('template_redirect', [$this, 'handle_character_switch']);
+     ```
+   - Customize these hooks based on BuddyX theme compatibility testing
+
 ### Performance Considerations
 - Cache expensive calculations
 - Use transients for short-lived data
