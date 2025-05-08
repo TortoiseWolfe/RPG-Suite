@@ -33,14 +33,14 @@ class RPG_Suite {
      *
      * @var Core
      */
-    private $core;
+    public $core;
     
     /**
      * Character manager instance.
      *
      * @var Character_Manager
      */
-    private $character_manager;
+    public $character_manager;
 
     /**
      * Define the core functionality of the plugin.

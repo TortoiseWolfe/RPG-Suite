@@ -35,6 +35,13 @@ class Core {
     }
     
     /**
+     * Profile integration instance.
+     *
+     * @var Components\Profile_Integration
+     */
+    private $profile_integration;
+    
+    /**
      * Initialize hooks and actions.
      *
      * @return void
@@ -52,8 +59,277 @@ class Core {
         // Initialize capabilities
         add_action('init', [$this, 'initialize_capabilities']);
         
+        // Initialize BuddyPress profile integration if BuddyPress is active
+        add_action('bp_init', [$this, 'initialize_buddypress_integration'], 20);
+        
         // Fire init event for other subsystems
         $this->event_dispatcher->dispatch('rpg_suite.core.init');
+    }
+    
+    /**
+     * Initialize BuddyPress integration
+     *
+     * @return void
+     */
+    public function initialize_buddypress_integration() {
+        if (function_exists('buddypress')) {
+            // Create Components directory if it doesn't exist
+            $components_dir = dirname(__FILE__) . '/Components';
+            if (!is_dir($components_dir)) {
+                mkdir($components_dir, 0755, true);
+            }
+            
+            // Always recreate the Profile Integration class
+            $profile_integration_file = $components_dir . '/class-profile-integration.php';
+            $this->create_profile_integration_class();
+            
+            require_once $profile_integration_file;
+            $this->profile_integration = new Components\Profile_Integration();
+        }
+    }
+    
+    /**
+     * Create Profile Integration class file
+     *
+     * @return void
+     */
+    private function create_profile_integration_class() {
+        $components_dir = dirname(__FILE__) . '/Components';
+        $profile_integration_file = $components_dir . '/class-profile-integration.php';
+        
+        $class_content = '<?php
+/**
+ * BuddyPress Profile Integration Component
+ *
+ * @package RPG_Suite
+ * @subpackage RPG_Suite/Core/Components
+ */
+
+namespace RPG\Suite\Core\Components;
+
+/**
+ * Class for integrating character information into BuddyPress profiles
+ */
+class Profile_Integration {
+    /**
+     * Initialize hooks for BuddyPress profile integration.
+     */
+    public function __construct() {
+        // Primary hook for inside the profile card
+        add_action(\'bp_member_header_inner_content\', array($this, \'display_character_header\'));
+        
+        // Fallback hooks in case primary hook isn\'t available
+        add_action(\'bp_profile_header_meta\', array($this, \'display_character_header\'));
+        add_action(\'bp_member_header_actions\', array($this, \'display_character_header\'));
+        
+        // More specific BuddyX hooks
+        add_action(\'buddyx_member_header_actions\', array($this, \'display_character_header\'));
+        add_action(\'buddyx_member_header_meta\', array($this, \'display_character_header\'));
+        
+        // CSS styling
+        add_action(\'wp_enqueue_scripts\', array($this, \'add_profile_css\'));
+    }
+    
+    /**
+     * Display character information in profile header.
+     */
+    public function display_character_header() {
+        // Only display once
+        static $displayed = false;
+        if ($displayed) {
+            return;
+        }
+        $displayed = true;
+        
+        // Only show in member profiles
+        if (!function_exists(\'bp_is_user\') || !bp_is_user()) {
+            return;
+        }
+        
+        // Get displayed user ID
+        $user_id = bp_displayed_user_id();
+        if (!$user_id) {
+            return;
+        }
+        
+        // Get active character (using the global variable)
+        $character_manager = rpg_suite()->character_manager;
+        if (!$character_manager) {
+            return;
+        }
+        
+        $character = $character_manager->get_active_character($user_id);
+        if (!$character) {
+            // If viewing your own profile and no character, show a prompt
+            if (is_user_logged_in() && $user_id === get_current_user_id()) {
+                echo \'<div class="rpg-character-prompt">\';
+                echo \'<h3>\' . esc_html__("You don\'t have a character yet!", "rpg-suite") . \'</h3>\';
+                echo \'<p>\' . esc_html__("Create your first character to start your adventure.", "rpg-suite") . \'</p>\';
+                echo \'<a href="\' . esc_url(admin_url(\'post-new.php?post_type=rpg_character\')) . \'" class="button">\';
+                echo esc_html__("Create Character", "rpg-suite") . \'</a>\';
+                echo \'</div>\';
+            }
+            return;
+        }
+        
+        // Display character info
+        echo \'<div class="rpg-character-profile">\';
+        echo \'<h3>\' . esc_html($character->post_title) . \'</h3>\';
+        
+        // Get character type (taxonomy term)
+        $character_types = get_the_terms($character->ID, \'character_type\');
+        $character_type = $character_types ? $character_types[0]->name : __("Character", "rpg-suite");
+        
+        echo \'<p class="rpg-character-type">\' . esc_html($character_type) . \'</p>\';
+        
+        // Show character description
+        $excerpt = has_excerpt($character->ID) ? 
+            get_the_excerpt($character->ID) : 
+            wp_trim_words($character->post_content, 30);
+            
+        echo \'<div class="rpg-character-description">\' . esc_html($excerpt) . \'</div>\';
+        
+        // Character image if available
+        if (has_post_thumbnail($character->ID)) {
+            echo \'<div class="rpg-character-avatar">\';
+            echo get_the_post_thumbnail($character->ID, \'thumbnail\');
+            echo \'</div>\';
+        }
+        
+        // Character switching for current user
+        if (is_user_logged_in() && $user_id === get_current_user_id()) {
+            // Get all user characters
+            $characters = $character_manager->get_user_characters($user_id);
+            if (count($characters) > 1) {
+                echo \'<div class="rpg-character-switcher">\';
+                echo \'<form method="get" action="">\';
+                echo \'<input type="hidden" name="_wpnonce" value="\' . wp_create_nonce(\'rpg_switch_character\') . \'" />\';
+                echo \'<select name="rpg_switch_character">\';
+                
+                foreach ($characters as $char) {
+                    $selected = ($char->ID === $character->ID) ? \' selected\' : \'\';
+                    echo \'<option value="\' . esc_attr($char->ID) . \'"\' . $selected . \'>\' . 
+                         esc_html($char->post_title) . \'</option>\';
+                }
+                
+                echo \'</select>\';
+                echo \'<button type="submit" class="button">\' . esc_html__("Switch", "rpg-suite") . \'</button>\';
+                echo \'</form>\';
+                echo \'</div>\';
+            }
+        }
+        
+        echo \'</div>\';
+    }
+    
+    /**
+     * Add CSS for styling character display.
+     */
+    public function add_profile_css() {
+        // Only add CSS on BuddyPress pages
+        if (!function_exists(\'is_buddypress\') || !is_buddypress()) {
+            return;
+        }
+        
+        $css = "
+        .rpg-character-profile {
+            background: #f9f9f9;
+            border: 1px solid #e5e5e5;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            position: relative;
+            z-index: 10;
+            clear: both;
+            font-family: \'Special Elite\', \'Courier New\', monospace;
+        }
+        
+        .rpg-character-profile h3 {
+            margin-top: 0;
+            color: #B87333; /* Copper/bronze color for steampunk theme */
+            font-family: \'Special Elite\', \'Courier New\', monospace;
+        }
+        
+        .rpg-character-type {
+            font-style: italic;
+            color: #6B4226; /* Dark bronze */
+            margin-bottom: 10px;
+        }
+        
+        .rpg-character-description {
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .rpg-character-avatar {
+            float: right;
+            margin-left: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .rpg-character-avatar img {
+            border-radius: 5px;
+            border: 2px solid #B87333;
+        }
+        
+        .rpg-character-switcher {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e5e5;
+        }
+        
+        .rpg-character-prompt {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        
+        /* BuddyX theme specific styles */
+        .buddyx-user-container .rpg-character-profile {
+            margin: 0;
+            border-top: 1px solid #e5e5e5;
+            padding-top: 15px;
+            margin-top: 15px;
+            border-radius: 0;
+            background: transparent;
+            border-left: 0;
+            border-right: 0;
+            border-bottom: 0;
+        }
+        
+        .buddyx-user-details .rpg-character-profile h3 {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        /* Make sure our content stays within the card */
+        .buddyx-user-container .buddyx-user-info {
+            overflow: visible !important;
+        }
+        
+        .buddypress-wrap .bp-subnavs {
+            clear: both;
+        }
+        ";
+        
+        wp_add_inline_style(\'buddyx-custom-style\', $css);
+    }
+}
+';
+        file_put_contents($profile_integration_file, $class_content);
+    }
+    
+    /**
+     * Get the profile integration instance.
+     *
+     * @return Components\Profile_Integration|null
+     */
+    public function get_profile_integration() {
+        return $this->profile_integration;
     }
     
     /**

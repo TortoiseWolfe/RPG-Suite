@@ -55,10 +55,27 @@ register_deactivation_hook(__FILE__, 'deactivate_rpg_suite');
  * Begins execution of the plugin.
  */
 function run_rpg_suite() {
+    global $rpg_suite;
+    
     // Initialize the plugin
     require_once RPG_SUITE_PLUGIN_DIR . 'includes/class-rpg-suite.php';
-    $plugin = new RPG\Suite\Includes\RPG_Suite();
-    $plugin->run();
+    $rpg_suite = new RPG\Suite\Includes\RPG_Suite();
+    
+    // Store reference in global for access
+    $GLOBALS['rpg_suite'] = $rpg_suite;
+    
+    // Run the plugin
+    $rpg_suite->run();
+}
+
+/**
+ * Helper function to access the global plugin instance.
+ *
+ * @return \RPG\Suite\Includes\RPG_Suite Plugin instance.
+ */
+function rpg_suite() {
+    global $rpg_suite;
+    return $rpg_suite;
 }
 
 // Run the plugin
