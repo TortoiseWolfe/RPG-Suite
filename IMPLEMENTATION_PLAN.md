@@ -5,29 +5,29 @@
 1. **BuddyPress Integration First**: Design around BuddyPress profile display from the start
 2. **Minimal Approach**: Use only what's required to accomplish each feature
 3. **Practical Over Theoretical**: Choose working code over idealized architecture
-4. **Direct Implementation**: Use WordPress and BuddyPress APIs directly without abstraction layers
-5. **Progressive Enhancement**: Start with one character per player, unlock additional features through gameplay
+4. **Direct Implementation**: Use WordPress and BuddyPress APIs directly
+5. **Progressive Enhancement**: Start with one character per player, unlock multiple characters later
 
 ## Essential Structure
 
-1. **Character Progression**: Start with one character, unlock multiple characters later
-2. **Basic Post Type**: Use standard WordPress capabilities
-3. **Direct File Inclusion**: No autoloaders or complex class loading
-4. **Multiple BuddyPress Hooks**: Target all profile hooks for theme compatibility
-5. **Global Access**: Simple global variable with access function
+1. **Custom Post Type**: Use rpg_character post type with standard capabilities
+2. **Character-Player Relationship**: Connect characters to players via post meta
+3. **Multiple BuddyPress Hooks**: Target all profile hooks for theme compatibility
+4. **Global Access**: Simple global variable with access function
+5. **Active Character Flag**: Track which character is currently active
 
-## Implementation Features
+## MVP Features
 
 1. BuddyPress profile display with character information
-2. Basic character creation in admin
+2. Character creation in admin
 3. Character data stored in post meta
-4. Compatible with BuddyX theme
-5. Character switching functionality for advanced players
+4. BuddyX theme compatibility
+5. Character switching functionality
 
-## Character Storage
+## Implementation Steps
 
-1. Custom post type with standard capabilities
-2. User relationship via post meta
-3. Character class and basic attributes
-4. Active character flag for multiple character support
-
+1. Create plugin main file with global access
+2. Register character post type
+3. Add character meta fields
+4. Implement BuddyPress profile integration
+5. Add character switching functionality
