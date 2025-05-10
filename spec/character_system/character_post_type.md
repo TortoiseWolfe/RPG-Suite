@@ -13,270 +13,78 @@ This specification defines the custom post type for characters in the RPG-Suite 
 
 ## Class Definition
 
-```php
-/**
- * Character Post Type registration and management
- *
- * @since 1.0.0
- */
-class RPG_Suite_Character_Post_Type {
-    /**
-     * Post type name
-     *
-     * @since 1.0.0
-     * @var string
-     */
-    const POST_TYPE = 'rpg_character';
-    
-    /**
-     * Die code utility
-     *
-     * @since 1.0.0
-     * @var RPG_Suite_Die_Code_Utility
-     */
-    private $die_code_utility;
-    
-    /**
-     * Constructor
-     *
-     * @since 1.0.0
-     * @param RPG_Suite_Die_Code_Utility $die_code_utility Die code utility.
-     */
-    public function __construct(RPG_Suite_Die_Code_Utility $die_code_utility) {
-        $this->die_code_utility = $die_code_utility;
-    }
-    
-    /**
-     * Initialize the post type
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public function init() {
-        add_action('init', array($this, 'register_post_type'));
-        add_action('init', array($this, 'register_meta'));
-        add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
-        add_action('save_post_' . self::POST_TYPE, array($this, 'save_meta_boxes'), 10, 2);
-        add_filter('manage_' . self::POST_TYPE . '_posts_columns', array($this, 'add_custom_columns'));
-        add_action('manage_' . self::POST_TYPE . '_posts_custom_column', array($this, 'custom_column_content'), 10, 2);
-        add_filter('post_updated_messages', array($this, 'updated_messages'));
-    }
-    
-    /**
-     * Register the character post type
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public function register_post_type() {
-        // Implementation logic
-    }
-    
-    /**
-     * Register meta fields
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public function register_meta() {
-        // Implementation logic
-    }
-    
-    /**
-     * Add meta boxes
-     *
-     * @since 1.0.0
-     * @param WP_Post $post The post object.
-     * @return void
-     */
-    public function add_meta_boxes($post) {
-        // Implementation logic
-    }
-    
-    /**
-     * Save meta box data
-     *
-     * @since 1.0.0
-     * @param int     $post_id Post ID.
-     * @param WP_Post $post    Post object.
-     * @return void
-     */
-    public function save_meta_boxes($post_id, $post) {
-        // Implementation logic
-    }
-    
-    /**
-     * Add custom columns to character list
-     *
-     * @since 1.0.0
-     * @param array $columns Array of columns.
-     * @return array Modified columns.
-     */
-    public function add_custom_columns($columns) {
-        // Implementation logic
-    }
-    
-    /**
-     * Display content in custom columns
-     *
-     * @since 1.0.0
-     * @param string $column  Column name.
-     * @param int    $post_id Post ID.
-     * @return void
-     */
-    public function custom_column_content($column, $post_id) {
-        // Implementation logic
-    }
-    
-    /**
-     * Customize post updated messages
-     *
-     * @since 1.0.0
-     * @param array $messages Array of messages.
-     * @return array Modified messages.
-     */
-    public function updated_messages($messages) {
-        // Implementation logic
-    }
-}
-```
+The Character Post Type class should:
+1. Be named `RPG_Suite_Character_Post_Type`
+2. Be defined in file `class-character-post-type.php`
+3. Define a constant for the post type name: 'rpg_character'
+4. Have a dependency on the Die Code Utility (RPG_Suite_Die_Code_Utility)
+5. Initialize the post type with WordPress hooks:
+   - Register post type on 'init'
+   - Register meta fields on 'init'
+   - Add meta boxes
+   - Handle saving meta box data
+   - Customize admin columns
+   - Customize post update messages
+
+The class should implement these methods:
+- register_post_type(): Registers the custom post type
+- register_meta(): Registers meta fields for character data
+- add_meta_boxes(): Adds meta boxes for character editing
+- save_meta_boxes(): Saves data from meta boxes
+- add_custom_columns(): Adds custom columns to admin list
+- custom_column_content(): Displays content in custom columns
+- updated_messages(): Customizes post update messages
 
 ## Method Implementations
 
 ### Registering Post Type
 
-```php
-/**
- * Register the character post type
- *
- * @since 1.0.0
- * @return void
- */
-public function register_post_type() {
-    $labels = array(
-        'name'                  => _x('Characters', 'Post type general name', 'rpg-suite'),
-        'singular_name'         => _x('Character', 'Post type singular name', 'rpg-suite'),
-        'menu_name'             => _x('Characters', 'Admin Menu text', 'rpg-suite'),
-        'name_admin_bar'        => _x('Character', 'Add New on Toolbar', 'rpg-suite'),
-        'add_new'               => __('Add New', 'rpg-suite'),
-        'add_new_item'          => __('Add New Character', 'rpg-suite'),
-        'new_item'              => __('New Character', 'rpg-suite'),
-        'edit_item'             => __('Edit Character', 'rpg-suite'),
-        'view_item'             => __('View Character', 'rpg-suite'),
-        'all_items'             => __('All Characters', 'rpg-suite'),
-        'search_items'          => __('Search Characters', 'rpg-suite'),
-        'parent_item_colon'     => __('Parent Characters:', 'rpg-suite'),
-        'not_found'             => __('No characters found.', 'rpg-suite'),
-        'not_found_in_trash'    => __('No characters found in Trash.', 'rpg-suite'),
-        'featured_image'        => _x('Character Image', 'Overrides the "Featured Image" phrase', 'rpg-suite'),
-        'set_featured_image'    => _x('Set character image', 'Overrides the "Set featured image" phrase', 'rpg-suite'),
-        'remove_featured_image' => _x('Remove character image', 'Overrides the "Remove featured image" phrase', 'rpg-suite'),
-        'use_featured_image'    => _x('Use as character image', 'Overrides the "Use as featured image" phrase', 'rpg-suite'),
-        'archives'              => _x('Character archives', 'The post type archive label used in nav menus', 'rpg-suite'),
-        'insert_into_item'      => _x('Insert into character', 'Overrides the "Insert into post"/"Insert into page" phrase', 'rpg-suite'),
-        'uploaded_to_this_item' => _x('Uploaded to this character', 'Overrides the "Uploaded to this post"/"Uploaded to this page" phrase', 'rpg-suite'),
-        'filter_items_list'     => _x('Filter characters list', 'Screen reader text for the filter links heading on the post type listing screen', 'rpg-suite'),
-        'items_list_navigation' => _x('Characters list navigation', 'Screen reader text for the pagination heading on the post type listing screen', 'rpg-suite'),
-        'items_list'            => _x('Characters list', 'Screen reader text for the items list heading on the post type listing screen', 'rpg-suite'),
-    );
+The register_post_type() method should:
 
-    $args = array(
-        'labels'             => $labels,
-        'public'             => true,
-        'publicly_queryable' => true,
-        'show_ui'            => true,
-        'show_in_menu'       => 'rpg-suite',
-        'show_in_rest'       => true,
-        'query_var'          => true,
-        'rewrite'            => array('slug' => 'character'),
-        'capability_type'    => 'post',
-        'has_archive'        => true,
-        'hierarchical'       => false,
-        'menu_position'      => null,
-        'supports'           => array('title', 'editor', 'author', 'thumbnail', 'excerpt'),
-    );
+1. Define comprehensive labels for the character post type
+2. Set up the post type with these key arguments:
+   - Public visibility
+   - Show in REST API for block editor support
+   - Custom rewrite rules with 'character' slug
+   - **CRITICAL: Use 'rpg_character' as capability_type (not 'post')**
+   - **CRITICAL: Set map_meta_cap to true for proper capability mapping**
+   - Support for title, editor, author, thumbnail, and excerpt
+   - Proper menu placement under the plugin menu
 
-    register_post_type(self::POST_TYPE, $args);
-}
-```
+The capability_type and map_meta_cap settings are especially important to prevent capability conflicts with other plugins like GamiPress.
 
 ### Registering Meta Fields
 
-```php
-/**
- * Register meta fields
- *
- * @since 1.0.0
- * @return void
- */
-public function register_meta() {
-    // Registration of character attributes
-    register_post_meta(self::POST_TYPE, '_rpg_attributes', array(
-        'show_in_rest'      => true,
-        'single'            => true,
-        'type'              => 'object',
-        'sanitize_callback' => array($this, 'sanitize_attributes'),
-        'auth_callback'     => function() {
-            return current_user_can('edit_posts');
-        },
-    ));
-    
-    // Registration of character skills
-    register_post_meta(self::POST_TYPE, '_rpg_skills', array(
-        'show_in_rest'      => true,
-        'single'            => true,
-        'type'              => 'object',
-        'sanitize_callback' => array($this, 'sanitize_skills'),
-        'auth_callback'     => function() {
-            return current_user_can('edit_posts');
-        },
-    ));
-    
-    // Registration of character class
-    register_post_meta(self::POST_TYPE, '_rpg_class', array(
-        'show_in_rest'      => true,
-        'single'            => true,
-        'type'              => 'string',
-        'sanitize_callback' => 'sanitize_text_field',
-        'auth_callback'     => function() {
-            return current_user_can('edit_posts');
-        },
-    ));
-    
-    // Registration of active status
-    register_post_meta(self::POST_TYPE, '_rpg_active', array(
-        'show_in_rest'      => true,
-        'single'            => true,
-        'type'              => 'boolean',
-        'sanitize_callback' => 'rest_sanitize_boolean',
-        'auth_callback'     => function() {
-            return current_user_can('edit_posts');
-        },
-    ));
-    
-    // Registration of invention points
-    register_post_meta(self::POST_TYPE, '_rpg_invention_points', array(
-        'show_in_rest'      => true,
-        'single'            => true,
-        'type'              => 'integer',
-        'sanitize_callback' => 'absint',
-        'auth_callback'     => function() {
-            return current_user_can('edit_posts');
-        },
-    ));
-    
-    // Registration of fate tokens
-    register_post_meta(self::POST_TYPE, '_rpg_fate_tokens', array(
-        'show_in_rest'      => true,
-        'single'            => true,
-        'type'              => 'integer',
-        'sanitize_callback' => 'absint',
-        'auth_callback'     => function() {
-            return current_user_can('edit_posts');
-        },
-    ));
+The register_meta() method should register several meta fields for characters:
+
+1. _rpg_attributes (object): Character attributes for the d7 system
+2. _rpg_skills (object): Character skills
+3. _rpg_class (string): Character's class/profession
+4. _rpg_active (boolean): Whether this is the user's active character
+5. _rpg_invention_points (integer): Points for creating inventions
+6. _rpg_fate_tokens (integer): Tokens for fate manipulation
+
+**CRITICAL: All meta fields must use proper auth_callbacks that check for specific post type and capability**
+
+Incorrect auth callback (causes permission issues):
+```
+'auth_callback' => function() {
+    return current_user_can('edit_posts');
 }
 ```
+
+Correct auth callback (checks post type and specific capability):
+```
+'auth_callback' => function($allowed, $meta_key, $post_id, $user_id) {
+    $post = get_post($post_id);
+    if ($post && $post->post_type === 'rpg_character') {
+        return user_can($user_id, 'edit_rpg_character', $post_id);
+    }
+    return $allowed;
+}
+```
+
+This correction prevents permission issues when editing character meta data.
 
 ## Integration with WordPress and BuddyPress
 
@@ -307,3 +115,4 @@ The character post type integrates with WordPress and BuddyPress through:
 2. The admin UI leverages WordPress core UI patterns
 3. The d7 system is integrated into meta boxes for attribute editing
 4. The post type is designed to work with the character manager
+5. All class names follow the RPG_Suite_ prefix convention

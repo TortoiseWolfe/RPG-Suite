@@ -1,197 +1,91 @@
-# Plugin Deactivator Specification
+# Deactivator Class Specification
 
 ## Purpose
-This specification defines the plugin deactivator class that handles cleanup tasks when the RPG-Suite plugin is deactivated, ensuring proper cleanup while preserving user data.
+The Deactivator class handles plugin deactivation tasks, including cleanup of temporary data, cache flushing, and saving persistent data.
 
 ## Requirements
-1. Flush rewrite rules
-2. Clear any scheduled events
-3. Clean up transients and cache data
-4. Preserve all user data and settings
-5. Handle multisite deactivations properly
-6. Provide hooks for extension deactivation
+1. Flush plugin caches
+2. Clean up temporary data
+3. Handle multisite deactivation
+4. Save persistent user data
+5. Clear scheduled events and hooks
+6. Perform database cleanup for temporary tables
 
-## Class Definition
+## Class Requirements
 
-```php
-/**
- * Plugin deactivation handler
- *
- * @since 1.0.0
- */
-class RPG_Suite_Deactivator {
-    /**
-     * Deactivate the plugin
-     *
-     * @since 1.0.0
-     * @param bool $network_wide Whether the plugin is being deactivated network-wide.
-     * @return void
-     */
-    public static function deactivate($network_wide) {
-        if ($network_wide && is_multisite()) {
-            self::deactivate_multisite();
-        } else {
-            self::deactivate_single_site();
-        }
-    }
-    
-    /**
-     * Deactivate the plugin on a single site
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function deactivate_single_site() {
-        // Clear scheduled events
-        self::clear_scheduled_events();
-        
-        // Clear caches and transients
-        self::clear_caches();
-        
-        // Flush rewrite rules
-        flush_rewrite_rules();
-        
-        /**
-         * Action fired when plugin is deactivated on a single site
-         *
-         * @since 1.0.0
-         */
-        do_action('rpg_suite_deactivated');
-    }
-    
-    /**
-     * Deactivate the plugin network-wide
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function deactivate_multisite() {
-        global $wpdb;
-        
-        // Get all sites
-        $blog_ids = $wpdb->get_col("SELECT blog_id FROM $wpdb->blogs");
-        
-        foreach ($blog_ids as $blog_id) {
-            switch_to_blog($blog_id);
-            
-            // Clear scheduled events for this site
-            self::clear_scheduled_events();
-            
-            // Clear caches and transients for this site
-            self::clear_caches();
-            
-            /**
-             * Action fired when plugin is deactivated on a site in multisite
-             *
-             * @since 1.0.0
-             * @param int $blog_id The ID of the blog being deactivated on.
-             */
-            do_action('rpg_suite_deactivated_ms', $blog_id);
-            
-            restore_current_blog();
-        }
-        
-        // Flush rewrite rules
-        flush_rewrite_rules();
-        
-        /**
-         * Action fired when plugin is deactivated network-wide
-         *
-         * @since 1.0.0
-         */
-        do_action('rpg_suite_deactivated_network');
-    }
-    
-    /**
-     * Clear scheduled events
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function clear_scheduled_events() {
-        // Clear any cron jobs
-        wp_clear_scheduled_hook('rpg_suite_daily_maintenance');
-        wp_clear_scheduled_hook('rpg_suite_hourly_character_sync');
-    }
-    
-    /**
-     * Clear caches and transients
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function clear_caches() {
-        global $wpdb;
-        
-        // Delete all transients used by the plugin
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM $wpdb->options WHERE option_name LIKE %s OR option_name LIKE %s",
-                '_transient_rpg_%',
-                '_transient_timeout_rpg_%'
-            )
-        );
-        
-        // Clear object cache groups if using an external object cache
-        if (wp_using_ext_object_cache()) {
-            wp_cache_flush_group('rpg_suite');
-        }
-    }
-}
-```
+The Deactivator class should:
 
-## Usage
+1. Be named `RPG_Suite_Deactivator`
+2. Be defined in file `class-deactivator.php`
+3. Include a main deactivation method that handles single site or multi-site
+4. Clean up temporary resources without removing user data
+5. Support silent deactivation for updates
+6. Clear scheduled tasks
 
-The deactivator is hooked into WordPress's deactivation hook in the main plugin file:
+## Method Descriptions
 
-```php
-// In rpg-suite.php
-register_deactivation_hook(__FILE__, array('RPG_Suite_Deactivator', 'deactivate'));
-```
+### Main Deactivation Method
+
+The deactivate() method should:
+- Accept optional boolean for silent deactivation
+- Check if deactivation is network-wide
+- For single site: call the single site deactivation method
+- For multi-site: iterate through sites and call single site deactivation for each
+- Trigger deactivation actions
+
+### Single Site Deactivation
+
+The deactivate_single_site() method should:
+- Flush rewrite rules when not silent
+- Clear plugin caches
+- Deregister admin hooks that might cause errors
+- Clear scheduled cron events
+- Log deactivation with timestamp and version
+
+### Cache Cleanup
+
+The clear_caches() method should:
+- Clear transients related to RPG-Suite
+- Flush object cache groups created by the plugin
+- Clear any custom cache directories
+- Remove temporary files if created
+
+### Scheduled Tasks Cleanup
+
+The clear_scheduled_tasks() method should:
+- Remove cron events created by the plugin
+- Clear any pending background tasks
+- Unschedule automated reports or user notifications
+- Stop any running background processes
+
+## Integration with Plugin Main Class
+
+The Deactivator should be:
+- Instantiated during plugin deactivation
+- Called from a static deactivate hook callback in the main plugin file
+- Registered with register_deactivation_hook()
+
+## Multisite Support
+
+For multisite support, the deactivator should:
+- Check if is_multisite() and if deactivation is network wide
+- Handle per-site deactivation settings
+- Support network-wide deactivation
 
 ## Important Considerations
 
-### Data Preservation
-The deactivator is designed to preserve all user data, including:
-- Character posts and meta
-- Invention posts and meta
-- Plugin settings and options
-
-### Cleanup Tasks
-The deactivator performs these cleanup tasks:
-1. Removes scheduled cron jobs
-2. Clears transient cache data
-3. Flushes rewrite rules
-4. Provides hooks for extensions to clean up
-
-### Multisite Support
-For multisite installations, the deactivator:
-1. Loops through all sites in the network
-2. Performs site-specific cleanup on each
-3. Provides multisite-specific hooks
-4. Handles network-wide deactivation properly
-
-## Extension Points
-
-The deactivator provides several action hooks for extensions:
-
-```php
-// Single site deactivation
-do_action('rpg_suite_deactivated');
-
-// Multisite per-site deactivation
-do_action('rpg_suite_deactivated_ms', $blog_id);
-
-// Multisite network-wide deactivation
-do_action('rpg_suite_deactivated_network');
-```
+1. **Preserve User Data**: Do NOT remove important user data during deactivation
+2. **Cache Cleanup Only**: Remove caches but not core data
+3. **Event Cleanup**: Unschedule events to prevent errors
+4. **Temporary Tables**: Only drop temporary tables, not user data tables
 
 ## Implementation Notes
 
-1. **Data Safety**: The deactivator prioritizes user data preservation
-2. **Cache Cleanup**: All transients and caches are properly cleared
-3. **Scheduled Events**: All cron jobs are removed to prevent orphaned tasks
-4. **Multisite Awareness**: Properly handles both single and multisite installs
-5. **Extension Support**: Provides hooks for addon plugins
-6. **Performance**: Optimized for efficient database operations
-7. **Reusability**: Methods are structured for potential reuse
+1. **Rewrite Rules**: Always flush rewrite rules on deactivation 
+2. **Hook Removal**: Remove any unnecessary hooks to prevent errors
+3. **Multisite Support**: Handle network wide deactivation carefully
+4. **Performance**: Minimize impact during deactivation
+5. **Error Handling**: Log deactivation issues
+6. **Clean Exit**: Ensure no cron or background tasks remain
+7. **Reversibility**: Make deactivation completely reversible
+8. **Class Naming**: Follows the RPG_Suite_ prefix convention for consistency

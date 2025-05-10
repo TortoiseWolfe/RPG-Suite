@@ -30,659 +30,124 @@ RPG-Suite (top-level menu)
 
 ### Admin Main Class
 
-```php
-/**
- * Main admin class for RPG-Suite
- */
-class RPG_Suite_Admin {
-    /**
-     * @var Character_Manager
-     */
-    private $character_manager;
-    
-    /**
-     * @var Die_Code_Utility
-     */
-    private $die_code_utility;
-    
-    /**
-     * Constructor
-     * 
-     * @param Character_Manager $character_manager
-     * @param Die_Code_Utility $die_code_utility
-     */
-    public function __construct(Character_Manager $character_manager, Die_Code_Utility $die_code_utility) {
-        $this->character_manager = $character_manager;
-        $this->die_code_utility = $die_code_utility;
-    }
-    
-    /**
-     * Initialize admin hooks
-     * 
-     * @return void
-     */
-    public function init() {
-        add_action('admin_menu', array($this, 'register_admin_menu'));
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-        add_action('add_meta_boxes', array($this, 'register_meta_boxes'));
-        add_action('save_post_rpg_character', array($this, 'save_character_meta'));
-        add_action('save_post_rpg_invention', array($this, 'save_invention_meta'));
-        add_filter('manage_rpg_character_posts_columns', array($this, 'character_columns'));
-        add_action('manage_rpg_character_posts_custom_column', array($this, 'character_column_content'), 10, 2);
-    }
-    
-    /**
-     * Register admin menu pages
-     * 
-     * @return void
-     */
-    public function register_admin_menu() {
-        // Implementation logic
-    }
-    
-    /**
-     * Enqueue admin assets
-     * 
-     * @return void
-     */
-    public function enqueue_admin_assets($hook) {
-        // Implementation logic
-    }
-    
-    /**
-     * Register meta boxes
-     * 
-     * @return void
-     */
-    public function register_meta_boxes() {
-        // Implementation logic
-    }
-    
-    /**
-     * Save character meta
-     * 
-     * @param int $post_id Character ID
-     * @return void
-     */
-    public function save_character_meta($post_id) {
-        // Implementation logic
-    }
-    
-    /**
-     * Save invention meta
-     * 
-     * @param int $post_id Invention ID
-     * @return void
-     */
-    public function save_invention_meta($post_id) {
-        // Implementation logic
-    }
-    
-    /**
-     * Customize character list columns
-     * 
-     * @param array $columns
-     * @return array
-     */
-    public function character_columns($columns) {
-        // Implementation logic
-    }
-    
-    /**
-     * Display character column content
-     * 
-     * @param string $column
-     * @param int $post_id
-     * @return void
-     */
-    public function character_column_content($column, $post_id) {
-        // Implementation logic
-    }
-}
-```
+The Admin Main Class should:
+1. Be named `RPG_Suite_Admin`
+2. Be defined in file `class-admin.php`
+3. Have private properties for character_manager and die_code_utility (RPG_Suite_Character_Manager and RPG_Suite_Die_Code_Utility)
+4. Accept these dependencies in its constructor
+5. Initialize admin hooks in a separate init() method
+6. Register admin menu pages and handle access control
+7. Enqueue admin assets (CSS/JS) conditionally based on current admin page
+8. Register meta boxes for character and invention post types
+9. Handle saving character and invention meta data
+10. Customize admin columns for RPG-Suite post types
 
 ### Character Editor Class
 
-```php
-/**
- * Character editing interface
- */
-class RPG_Suite_Character_Editor {
-    /**
-     * @var Die_Code_Utility
-     */
-    private $die_code_utility;
-    
-    /**
-     * Constructor
-     * 
-     * @param Die_Code_Utility $die_code_utility
-     */
-    public function __construct(Die_Code_Utility $die_code_utility) {
-        $this->die_code_utility = $die_code_utility;
-    }
-    
-    /**
-     * Display character attributes meta box
-     * 
-     * @param WP_Post $post
-     * @return void
-     */
-    public function attributes_meta_box($post) {
-        // Implementation logic
-    }
-    
-    /**
-     * Display character skills meta box
-     * 
-     * @param WP_Post $post
-     * @return void
-     */
-    public function skills_meta_box($post) {
-        // Implementation logic
-    }
-    
-    /**
-     * Display character owner meta box
-     * 
-     * @param WP_Post $post
-     * @return void
-     */
-    public function owner_meta_box($post) {
-        // Implementation logic
-    }
-}
-```
+The Character Editor Class should:
+1. Be named `RPG_Suite_Character_Editor`
+2. Be defined in file `class-character-editor.php`
+3. Have a private property for die_code_utility (RPG_Suite_Die_Code_Utility)
+4. Accept this dependency in its constructor
+5. Provide methods for rendering meta boxes:
+   - Attributes meta box for editing character attributes
+   - Skills meta box for managing character skills
+   - Owner meta box for assigning characters to users and managing active status
 
 ### Settings Class
 
-```php
-/**
- * Plugin settings page
- */
-class RPG_Suite_Settings {
-    /**
-     * Register settings
-     * 
-     * @return void
-     */
-    public function register_settings() {
-        // Implementation logic
-    }
-    
-    /**
-     * Display settings page
-     * 
-     * @return void
-     */
-    public function render_settings_page() {
-        // Implementation logic
-    }
-    
-    /**
-     * Render settings fields
-     * 
-     * @return void
-     */
-    public function render_settings_fields() {
-        // Implementation logic
-    }
-    
-    /**
-     * Sanitize settings
-     * 
-     * @param array $input
-     * @return array
-     */
-    public function sanitize_settings($input) {
-        // Implementation logic
-    }
-}
-```
+The Settings Class should:
+1. Be named `RPG_Suite_Settings`
+2. Be defined in file `class-settings.php`
+3. Provide methods for registering plugin settings
+4. Render the settings page with proper form controls
+5. Handle settings validation and sanitization
+6. Include options for:
+   - Default character limit per user
+   - Dice rolling animation toggle
+   - Data removal on uninstallation
 
 ## Character Edit Screen
 
-The character edit screen will include custom meta boxes for d7-based attributes:
-
-```php
-public function attributes_meta_box($post) {
-    // Get saved attributes
-    $attributes = get_post_meta($post->ID, '_rpg_attributes', true);
-    if (!is_array($attributes)) {
-        $attributes = array(
-            'fortitude' => '2d7',
-            'precision' => '2d7',
-            'intellect' => '2d7',
-            'charisma' => '2d7'
-        );
-    }
-    
-    wp_nonce_field('rpg_character_attributes', 'rpg_character_attributes_nonce');
-    
-    echo '<table class="form-table rpg-attributes-table">';
-    echo '<tr>';
-    echo '<th scope="row">' . __('Attribute Name', 'rpg-suite') . '</th>';
-    echo '<th scope="row">' . __('Die Code', 'rpg-suite') . '</th>';
-    echo '<th scope="row">' . __('Roll', 'rpg-suite') . '</th>';
-    echo '</tr>';
-    
-    foreach ($attributes as $name => $value) {
-        echo '<tr>';
-        echo '<th scope="row"><label for="rpg_attr_' . esc_attr($name) . '">' . esc_html(ucfirst($name)) . '</label></th>';
-        echo '<td>';
-        echo '<input type="text" id="rpg_attr_' . esc_attr($name) . '" name="rpg_attributes[' . esc_attr($name) . ']" value="' . esc_attr($value) . '" class="regular-text rpg-die-code" />';
-        echo '</td>';
-        echo '<td>';
-        echo '<button type="button" class="button rpg-roll-button" data-die-code="' . esc_attr($value) . '">' . __('Roll', 'rpg-suite') . '</button>';
-        echo '<span class="rpg-roll-result"></span>';
-        echo '</td>';
-        echo '</tr>';
-    }
-    
-    echo '</table>';
-    
-    echo '<p class="description">' . __('Enter die codes in the format "XdY+Z" (e.g., "3d7+2").', 'rpg-suite') . '</p>';
-}
-```
+The character attributes meta box should:
+- Retrieve saved attributes or use defaults
+- Include nonce field for security
+- Display a table with attribute names, die code inputs, and roll buttons
+- Make each attribute editable with proper labels
+- Include client-side validation for die code format
+- Add a roll button for each attribute to test values
+- Display a description of the die code format
 
 ### Skills Meta Box
 
-```php
-public function skills_meta_box($post) {
-    // Get saved skills
-    $skills = get_post_meta($post->ID, '_rpg_skills', true);
-    if (!is_array($skills)) {
-        $skills = array();
-    }
-    
-    // Get attributes for dropdown
-    $attributes = get_post_meta($post->ID, '_rpg_attributes', true);
-    if (!is_array($attributes)) {
-        $attributes = array(
-            'fortitude' => '2d7',
-            'precision' => '2d7',
-            'intellect' => '2d7',
-            'charisma' => '2d7'
-        );
-    }
-    
-    wp_nonce_field('rpg_character_skills', 'rpg_character_skills_nonce');
-    
-    echo '<div id="rpg-skills-container">';
-    echo '<table class="form-table rpg-skills-table">';
-    echo '<tr>';
-    echo '<th scope="row">' . __('Skill Name', 'rpg-suite') . '</th>';
-    echo '<th scope="row">' . __('Attribute', 'rpg-suite') . '</th>';
-    echo '<th scope="row">' . __('Die Code', 'rpg-suite') . '</th>';
-    echo '<th></th>';
-    echo '</tr>';
-    
-    // Existing skills
-    if (!empty($skills)) {
-        foreach ($skills as $name => $data) {
-            echo '<tr class="rpg-skill-row">';
-            echo '<td><input type="text" name="rpg_skill_names[]" value="' . esc_attr($name) . '" class="regular-text" /></td>';
-            
-            echo '<td><select name="rpg_skill_attributes[]">';
-            foreach ($attributes as $attr_name => $attr_value) {
-                $selected = ($data['attribute'] === $attr_name) ? 'selected' : '';
-                echo '<option value="' . esc_attr($attr_name) . '" ' . $selected . '>' . esc_html(ucfirst($attr_name)) . '</option>';
-            }
-            echo '</select></td>';
-            
-            echo '<td><input type="text" name="rpg_skill_values[]" value="' . esc_attr($data['value']) . '" class="regular-text rpg-die-code" /></td>';
-            echo '<td><button type="button" class="button rpg-remove-skill">' . __('Remove', 'rpg-suite') . '</button></td>';
-            echo '</tr>';
-        }
-    }
-    
-    // Template row for new skills (hidden by default)
-    echo '<tr class="rpg-skill-row rpg-skill-template" style="display:none;">';
-    echo '<td><input type="text" name="rpg_skill_names[]" value="" class="regular-text" /></td>';
-    
-    echo '<td><select name="rpg_skill_attributes[]">';
-    foreach ($attributes as $attr_name => $attr_value) {
-        echo '<option value="' . esc_attr($attr_name) . '">' . esc_html(ucfirst($attr_name)) . '</option>';
-    }
-    echo '</select></td>';
-    
-    echo '<td><input type="text" name="rpg_skill_values[]" value="2d7" class="regular-text rpg-die-code" /></td>';
-    echo '<td><button type="button" class="button rpg-remove-skill">' . __('Remove', 'rpg-suite') . '</button></td>';
-    echo '</tr>';
-    
-    echo '</table>';
-    
-    echo '<button type="button" class="button rpg-add-skill">' . __('Add Skill', 'rpg-suite') . '</button>';
-    echo '</div>';
-    
-    echo '<p class="description">' . __('Skills are specializations of attributes with their own die codes.', 'rpg-suite') . '</p>';
-}
-```
+The skills meta box should:
+- Retrieve saved skills or use an empty array
+- Get attributes for the attribute dropdown
+- Include nonce field for security
+- Display a table with skill name, attribute selection, and die code
+- Show existing skills with editable fields
+- Include a template row for adding new skills
+- Provide add/remove buttons for skills
+- Support dynamic addition of multiple skills
+- Include JavaScript to handle adding/removing skills
+- Validate die codes using the same format as attributes
 
 ### Character Owner Meta Box
 
-```php
-public function owner_meta_box($post) {
-    // Get current owner
-    $current_owner = $post->post_author;
-    
-    // Get users who can own characters
-    $users = get_users(array(
-        'role__in' => array('administrator', 'editor', 'author', 'subscriber')
-    ));
-    
-    wp_nonce_field('rpg_character_owner', 'rpg_character_owner_nonce');
-    
-    echo '<select name="post_author_override" id="post_author_override">';
-    foreach ($users as $user) {
-        $selected = ($user->ID == $current_owner) ? 'selected' : '';
-        echo '<option value="' . esc_attr($user->ID) . '" ' . $selected . '>' . esc_html($user->display_name) . ' (' . esc_html($user->user_login) . ')</option>';
-    }
-    echo '</select>';
-    
-    // Character limit info
-    $character_count = count_user_posts($current_owner, 'rpg_character');
-    $character_limit = $this->character_manager->get_character_limit($current_owner);
-    
-    echo '<p class="description">';
-    printf(
-        __('This user currently has %1$d of %2$d allowed characters.', 'rpg-suite'),
-        $character_count,
-        $character_limit
-    );
-    echo '</p>';
-    
-    // Active character status
-    $is_active = get_post_meta($post->ID, '_rpg_active', true);
-    
-    echo '<p>';
-    echo '<label for="rpg_active">';
-    echo '<input type="checkbox" name="rpg_active" id="rpg_active" value="1" ' . checked($is_active, true, false) . ' />';
-    echo __('Set as active character', 'rpg-suite');
-    echo '</label>';
-    echo '</p>';
-    
-    echo '<p class="description">' . __('If checked, this will become the user\'s active character, replacing any previously active character.', 'rpg-suite') . '</p>';
-}
-```
+The character owner meta box should:
+- Show the current owner of the character
+- Provide a dropdown of users who can own characters
+- Display character limit information for the selected user
+- Include an option to set the character as active
+- Warn that setting as active will replace any previously active character
+- Include nonce field for security
 
 ## Invention Edit Screen
 
-```php
-public function inventions_meta_box($post) {
-    // Get saved invention data
-    $complexity = get_post_meta($post->ID, '_rpg_complexity', true);
-    $components = get_post_meta($post->ID, '_rpg_components', true);
-    $effects = get_post_meta($post->ID, '_rpg_effects', true);
-    $character_id = get_post_meta($post->ID, '_rpg_character_id', true);
-    
-    if (!is_array($components)) {
-        $components = array();
-    }
-    
-    wp_nonce_field('rpg_invention_data', 'rpg_invention_data_nonce');
-    
-    echo '<table class="form-table">';
-    
-    // Inventor character
-    echo '<tr>';
-    echo '<th scope="row"><label for="rpg_character_id">' . __('Inventor Character', 'rpg-suite') . '</label></th>';
-    echo '<td>';
-    
-    // Get available characters
-    $characters = get_posts(array(
-        'post_type' => 'rpg_character',
-        'posts_per_page' => -1,
-    ));
-    
-    if (!empty($characters)) {
-        echo '<select name="rpg_character_id" id="rpg_character_id">';
-        echo '<option value="">' . __('Select a character', 'rpg-suite') . '</option>';
-        
-        foreach ($characters as $character) {
-            $selected = selected($character->ID, $character_id, false);
-            echo '<option value="' . esc_attr($character->ID) . '" ' . $selected . '>' . esc_html($character->post_title) . '</option>';
-        }
-        
-        echo '</select>';
-    } else {
-        echo __('No characters available', 'rpg-suite');
-    }
-    
-    echo '</td>';
-    echo '</tr>';
-    
-    // Complexity
-    echo '<tr>';
-    echo '<th scope="row"><label for="rpg_complexity">' . __('Complexity', 'rpg-suite') . '</label></th>';
-    echo '<td>';
-    echo '<input type="number" name="rpg_complexity" id="rpg_complexity" value="' . esc_attr($complexity) . '" class="small-text" min="1" max="30" />';
-    echo '<p class="description">' . __('The difficulty level of creating this invention (1-30).', 'rpg-suite') . '</p>';
-    echo '</td>';
-    echo '</tr>';
-    
-    // Components
-    echo '<tr>';
-    echo '<th scope="row">' . __('Components', 'rpg-suite') . '</th>';
-    echo '<td id="rpg-components-container">';
-    
-    if (!empty($components)) {
-        foreach ($components as $component) {
-            echo '<div class="rpg-component-row">';
-            echo '<input type="text" name="rpg_components[]" value="' . esc_attr($component) . '" class="regular-text" />';
-            echo '<button type="button" class="button rpg-remove-component">' . __('Remove', 'rpg-suite') . '</button>';
-            echo '</div>';
-        }
-    }
-    
-    echo '<div class="rpg-component-row">';
-    echo '<input type="text" name="rpg_components[]" value="" class="regular-text" />';
-    echo '<button type="button" class="button rpg-remove-component">' . __('Remove', 'rpg-suite') . '</button>';
-    echo '</div>';
-    
-    echo '<button type="button" class="button rpg-add-component">' . __('Add Component', 'rpg-suite') . '</button>';
-    echo '<p class="description">' . __('The components required to create this invention.', 'rpg-suite') . '</p>';
-    echo '</td>';
-    echo '</tr>';
-    
-    // Effects
-    echo '<tr>';
-    echo '<th scope="row"><label for="rpg_effects">' . __('Effects', 'rpg-suite') . '</label></th>';
-    echo '<td>';
-    echo '<textarea name="rpg_effects" id="rpg_effects" class="large-text" rows="5">' . esc_textarea($effects) . '</textarea>';
-    echo '<p class="description">' . __('The effects of this invention when used.', 'rpg-suite') . '</p>';
-    echo '</td>';
-    echo '</tr>';
-    
-    echo '</table>';
-}
-```
+The invention meta box should:
+- Retrieve saved invention data (complexity, components, effects)
+- Include a dropdown to select the inventor character
+- Display a complexity field (number input with min/max)
+- Show a repeatable field for components with add/remove buttons
+- Include a textarea for effects description
+- Provide proper descriptions for each field
+- Include nonce field for security
 
 ## Settings Page
 
-```php
-public function render_settings_page() {
-    if (!current_user_can('manage_options')) {
-        return;
-    }
-    
-    // Save settings if submitted
-    if (isset($_POST['rpg_suite_settings_nonce']) && wp_verify_nonce($_POST['rpg_suite_settings_nonce'], 'rpg_suite_settings')) {
-        update_option('rpg_suite_character_limit', absint($_POST['rpg_suite_character_limit']));
-        update_option('rpg_suite_dice_animation', isset($_POST['rpg_suite_dice_animation']) ? 1 : 0);
-        update_option('rpg_suite_remove_data_on_uninstall', isset($_POST['rpg_suite_remove_data_on_uninstall']) ? 1 : 0);
-        
-        echo '<div class="notice notice-success is-dismissible"><p>' . __('Settings saved.', 'rpg-suite') . '</p></div>';
-    }
-    
-    // Get current settings
-    $character_limit = get_option('rpg_suite_character_limit', 2);
-    $dice_animation = get_option('rpg_suite_dice_animation', 1);
-    $remove_data = get_option('rpg_suite_remove_data_on_uninstall', 0);
-    
-    echo '<div class="wrap">';
-    echo '<h1>' . __('RPG-Suite Settings', 'rpg-suite') . '</h1>';
-    
-    echo '<form method="post" action="">';
-    wp_nonce_field('rpg_suite_settings', 'rpg_suite_settings_nonce');
-    
-    echo '<table class="form-table">';
-    
-    // Character limit
-    echo '<tr>';
-    echo '<th scope="row"><label for="rpg_suite_character_limit">' . __('Default Character Limit', 'rpg-suite') . '</label></th>';
-    echo '<td>';
-    echo '<input type="number" name="rpg_suite_character_limit" id="rpg_suite_character_limit" value="' . esc_attr($character_limit) . '" class="small-text" min="1" max="10" />';
-    echo '<p class="description">' . __('Maximum number of characters a user can create by default.', 'rpg-suite') . '</p>';
-    echo '</td>';
-    echo '</tr>';
-    
-    // Dice animation
-    echo '<tr>';
-    echo '<th scope="row">' . __('Dice Animation', 'rpg-suite') . '</th>';
-    echo '<td>';
-    echo '<label for="rpg_suite_dice_animation">';
-    echo '<input type="checkbox" name="rpg_suite_dice_animation" id="rpg_suite_dice_animation" value="1" ' . checked($dice_animation, 1, false) . ' />';
-    echo __('Enable dice rolling animation', 'rpg-suite');
-    echo '</label>';
-    echo '<p class="description">' . __('Show animation when dice are rolled.', 'rpg-suite') . '</p>';
-    echo '</td>';
-    echo '</tr>';
-    
-    // Data removal
-    echo '<tr>';
-    echo '<th scope="row">' . __('Plugin Uninstallation', 'rpg-suite') . '</th>';
-    echo '<td>';
-    echo '<label for="rpg_suite_remove_data_on_uninstall">';
-    echo '<input type="checkbox" name="rpg_suite_remove_data_on_uninstall" id="rpg_suite_remove_data_on_uninstall" value="1" ' . checked($remove_data, 1, false) . ' />';
-    echo __('Remove all plugin data when uninstalling', 'rpg-suite');
-    echo '</label>';
-    echo '<p class="description">' . __('Warning: This will delete all characters and inventions when the plugin is deleted.', 'rpg-suite') . '</p>';
-    echo '</td>';
-    echo '</tr>';
-    
-    echo '</table>';
-    
-    echo '<p class="submit">';
-    echo '<input type="submit" name="submit" id="submit" class="button button-primary" value="' . __('Save Changes', 'rpg-suite') . '" />';
-    echo '</p>';
-    
-    echo '</form>';
-    echo '</div>';
-}
-```
+The settings page should:
+- Check user capabilities (manage_options)
+- Handle settings form submission with nonce verification
+- Display current settings with appropriate form fields
+- Include options for:
+  - Default character limit (number input)
+  - Dice animation toggle (checkbox)
+  - Data removal on uninstall (checkbox with warning)
+- Show a submit button for saving changes
+- Display success/error notices after form submission
 
 ## JavaScript for Dice Rolling
 
-```javascript
-jQuery(document).ready(function($) {
-    // Die code validation
-    function isValidDieCode(dieCode) {
-        return /^\d+d7([+-]\d+)?$/i.test(dieCode);
-    }
-    
-    // Die code input validation
-    $('.rpg-die-code').on('change', function() {
-        const dieCode = $(this).val();
-        if (!isValidDieCode(dieCode)) {
-            alert('Invalid die code format. Please use the format "XdY+Z" (e.g., "3d7+2").');
-            $(this).val('2d7');
-        }
-    });
-    
-    // Dice rolling
-    $('.rpg-roll-button').on('click', function() {
-        const dieCode = $(this).data('die-code');
-        const resultContainer = $(this).siblings('.rpg-roll-result');
-        
-        // Update the die code from the input if changed
-        const dieCodeInput = $(this).closest('tr').find('.rpg-die-code');
-        if (dieCodeInput.length) {
-            $(this).data('die-code', dieCodeInput.val());
-        }
-        
-        // Parse die code
-        const dieCodePattern = /^(\d+)d7(?:([+-])(\d+))?$/i;
-        const matches = dieCode.match(dieCodePattern);
-        
-        if (!matches) {
-            resultContainer.text('Invalid die code');
-            return;
-        }
-        
-        const numDice = parseInt(matches[1], 10);
-        let modifier = 0;
-        
-        if (matches[2] && matches[3]) {
-            modifier = parseInt(matches[3], 10);
-            if (matches[2] === '-') {
-                modifier = -modifier;
-            }
-        }
-        
-        // Roll the dice
-        let rolls = [];
-        let total = 0;
-        
-        for (let i = 0; i < numDice; i++) {
-            const roll = Math.floor(Math.random() * 7) + 1;
-            rolls.push(roll);
-            total += roll;
-        }
-        
-        total += modifier;
-        
-        // Display results
-        let resultText = 'Rolled ' + numDice + 'd7';
-        if (modifier !== 0) {
-            resultText += modifier > 0 ? '+' + modifier : modifier;
-        }
-        resultText += ': [' + rolls.join(', ') + ']';
-        if (modifier !== 0) {
-            resultText += ' ' + (modifier > 0 ? '+' : '') + modifier;
-        }
-        resultText += ' = ' + total;
-        
-        resultContainer.text(resultText);
-    });
-    
-    // Add skill
-    $('.rpg-add-skill').on('click', function() {
-        const template = $('.rpg-skill-template').clone();
-        template.removeClass('rpg-skill-template').show();
-        $(this).closest('#rpg-skills-container').find('table').append(template);
-    });
-    
-    // Remove skill
-    $(document).on('click', '.rpg-remove-skill', function() {
-        // Don't remove if it's the only visible row
-        const visibleRows = $(this).closest('table').find('.rpg-skill-row:visible');
-        if (visibleRows.length > 1) {
-            $(this).closest('.rpg-skill-row').remove();
-        } else {
-            $(this).closest('.rpg-skill-row').find('input[type="text"]').val('');
-        }
-    });
-    
-    // Add component
-    $('.rpg-add-component').on('click', function() {
-        const template = $('.rpg-component-row:last').clone();
-        template.find('input').val('');
-        $('#rpg-components-container').append(template);
-    });
-    
-    // Remove component
-    $(document).on('click', '.rpg-remove-component', function() {
-        // Don't remove if it's the only row
-        const rows = $('.rpg-component-row');
-        if (rows.length > 1) {
-            $(this).closest('.rpg-component-row').remove();
-        } else {
-            $(this).closest('.rpg-component-row').find('input').val('');
-        }
-    });
-});
-```
+The admin JavaScript should include:
+- Die code validation using regular expressions
+- Input validation for die code fields
+- Dice rolling functionality when roll buttons are clicked
+- Parsing of die codes (XdY+Z format)
+- Random number generation for each die
+- Display of roll results showing individual dice and totals
+- Dynamic skill row addition and removal
+- Dynamic component row addition and removal
+- Proper event delegation for dynamically added elements
+
+## CSS Styling
+
+The admin CSS should:
+- Style die code inputs and roll buttons
+- Format tables for attributes and skills
+- Style roll results for readability
+- Add visual cues for valid/invalid inputs
+- Maintain consistency with WordPress admin styles
+- Provide responsive design for different screen sizes
 
 ## Implementation Notes
 
@@ -694,3 +159,6 @@ jQuery(document).ready(function($) {
 6. **Internationalization**: All strings are properly localized
 7. **Admin Notices**: Success/error messages displayed using WordPress admin notices
 8. **Script Loading**: Admin scripts only loaded on relevant plugin pages
+9. **Form Submission**: Form data is properly escaped on display and sanitized on save
+10. **Error Handling**: Clear error messages provided for validation failures
+11. **Class Naming**: All class names follow the RPG_Suite_ prefix convention for consistency

@@ -1,362 +1,101 @@
-# Plugin Activator Specification
+# Activator Class Specification
 
 ## Purpose
-This specification defines the plugin activator class that handles initialization tasks when the RPG-Suite plugin is activated, including database setup, version checks, and default data creation.
+The Activator class handles plugin activation tasks, including database table creation, capability setup, and initialization of default options.
 
 ## Requirements
-1. Check WordPress version compatibility
-2. Check PHP version compatibility
-3. Check BuddyPress dependency
-4. Register custom post types
-5. Set default plugin options
-6. Create database schema as needed
-7. Handle multisite activations
-8. Initialize plugin version data
+1. Register custom post types and taxonomies
+2. Create required database tables
+3. Set up roles and capabilities
+4. Initialize default plugin options
+5. Flush rewrite rules for custom post types
+6. Handle multi-site activation if needed
 
-## Class Definition
+## Class Requirements
 
-```php
-/**
- * Plugin activation handler
- *
- * @since 1.0.0
- */
-class RPG_Suite_Activator {
-    /**
-     * Minimum required WordPress version
-     *
-     * @since 1.0.0
-     * @var string
-     */
-    const MIN_WP_VERSION = '5.7';
-    
-    /**
-     * Minimum required PHP version
-     *
-     * @since 1.0.0
-     * @var string
-     */
-    const MIN_PHP_VERSION = '7.2';
-    
-    /**
-     * Minimum required BuddyPress version
-     *
-     * @since 1.0.0
-     * @var string
-     */
-    const MIN_BP_VERSION = '8.0';
-    
-    /**
-     * Activate the plugin
-     *
-     * @since 1.0.0
-     * @param bool $network_wide Whether the plugin is being activated network-wide.
-     * @return void
-     */
-    public static function activate($network_wide) {
-        if ($network_wide && is_multisite()) {
-            self::activate_multisite();
-        } else {
-            self::activate_single_site();
-        }
-    }
-    
-    /**
-     * Activate the plugin on a single site
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function activate_single_site() {
-        // Check requirements
-        if (!self::check_requirements()) {
-            self::deactivate_plugin();
-            return;
-        }
-        
-        // Setup database
-        self::setup_database();
-        
-        // Register post types
-        self::register_post_types();
-        
-        // Set default options
-        self::set_default_options();
-        
-        // Flush rewrite rules
-        flush_rewrite_rules();
-    }
-    
-    /**
-     * Activate the plugin network-wide
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function activate_multisite() {
-        // Check requirements once for the entire network
-        if (!self::check_requirements()) {
-            self::deactivate_plugin();
-            return;
-        }
-        
-        global $wpdb;
-        
-        // Get all sites
-        $blog_ids = $wpdb->get_col("SELECT blog_id FROM $wpdb->blogs");
-        
-        foreach ($blog_ids as $blog_id) {
-            switch_to_blog($blog_id);
-            
-            // Setup database for this site
-            self::setup_database();
-            
-            // Register post types for this site
-            self::register_post_types();
-            
-            // Set default options for this site
-            self::set_default_options();
-            
-            restore_current_blog();
-        }
-        
-        // Flush rewrite rules
-        flush_rewrite_rules();
-    }
-    
-    /**
-     * Check plugin requirements
-     *
-     * @since 1.0.0
-     * @return bool Whether requirements are met.
-     */
-    private static function check_requirements() {
-        // Check WordPress version
-        if (version_compare(get_bloginfo('version'), self::MIN_WP_VERSION, '<')) {
-            add_action('admin_notices', array(__CLASS__, 'wordpress_version_notice'));
-            return false;
-        }
-        
-        // Check PHP version
-        if (version_compare(PHP_VERSION, self::MIN_PHP_VERSION, '<')) {
-            add_action('admin_notices', array(__CLASS__, 'php_version_notice'));
-            return false;
-        }
-        
-        // Check BuddyPress
-        if (!class_exists('BuddyPress')) {
-            add_action('admin_notices', array(__CLASS__, 'buddypress_missing_notice'));
-            return false;
-        }
-        
-        if (defined('BP_VERSION') && version_compare(BP_VERSION, self::MIN_BP_VERSION, '<')) {
-            add_action('admin_notices', array(__CLASS__, 'buddypress_version_notice'));
-            return false;
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Setup database tables and schema
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function setup_database() {
-        // No custom tables needed initially, using post types
-        // This method can be expanded if custom tables are needed later
-    }
-    
-    /**
-     * Register custom post types
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function register_post_types() {
-        // Character post type
-        register_post_type('rpg_character', array(
-            'labels'              => array(
-                'name'               => __('Characters', 'rpg-suite'),
-                'singular_name'      => __('Character', 'rpg-suite'),
-            ),
-            'public'              => true,
-            'has_archive'         => true,
-            'supports'            => array('title', 'editor', 'author', 'thumbnail'),
-            'rewrite'             => array('slug' => 'character'),
-            'capability_type'     => 'post',
-            'register_meta_box_cb' => null,
-        ));
-        
-        // Invention post type
-        register_post_type('rpg_invention', array(
-            'labels'             => array(
-                'name'              => __('Inventions', 'rpg-suite'),
-                'singular_name'     => __('Invention', 'rpg-suite'),
-            ),
-            'public'             => true,
-            'has_archive'        => true,
-            'supports'           => array('title', 'editor', 'author', 'thumbnail'),
-            'rewrite'            => array('slug' => 'invention'),
-            'capability_type'    => 'post',
-            'register_meta_box_cb' => null,
-        ));
-    }
-    
-    /**
-     * Set default plugin options
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function set_default_options() {
-        // Set plugin version
-        if (!get_option('rpg_suite_version')) {
-            add_option('rpg_suite_version', RPG_SUITE_VERSION);
-        }
-        
-        // Set character limit
-        if (!get_option('rpg_suite_character_limit')) {
-            add_option('rpg_suite_character_limit', 2);
-        }
-        
-        // Set dice animation
-        if (!get_option('rpg_suite_dice_animation')) {
-            add_option('rpg_suite_dice_animation', 1);
-        }
-        
-        // Set data removal flag (default to not remove)
-        if (!get_option('rpg_suite_remove_data_on_uninstall')) {
-            add_option('rpg_suite_remove_data_on_uninstall', 0);
-        }
-    }
-    
-    /**
-     * Deactivate the plugin due to requirements not being met
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    private static function deactivate_plugin() {
-        deactivate_plugins(plugin_basename(RPG_SUITE_PLUGIN_FILE));
-        if (isset($_GET['activate'])) {
-            unset($_GET['activate']);
-        }
-    }
-    
-    /**
-     * Display WordPress version notice
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public static function wordpress_version_notice() {
-        $message = sprintf(
-            /* translators: %1$s: minimum required version, %2$s: current version */
-            __('RPG-Suite requires WordPress version %1$s or higher. You are running version %2$s. Please upgrade WordPress to activate this plugin.', 'rpg-suite'),
-            self::MIN_WP_VERSION,
-            get_bloginfo('version')
-        );
-        echo '<div class="error"><p>' . esc_html($message) . '</p></div>';
-    }
-    
-    /**
-     * Display PHP version notice
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public static function php_version_notice() {
-        $message = sprintf(
-            /* translators: %1$s: minimum required version, %2$s: current version */
-            __('RPG-Suite requires PHP version %1$s or higher. You are running version %2$s. Please contact your host to upgrade PHP.', 'rpg-suite'),
-            self::MIN_PHP_VERSION,
-            PHP_VERSION
-        );
-        echo '<div class="error"><p>' . esc_html($message) . '</p></div>';
-    }
-    
-    /**
-     * Display BuddyPress missing notice
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public static function buddypress_missing_notice() {
-        $message = __('RPG-Suite requires BuddyPress to be installed and activated. Please install and activate BuddyPress to use this plugin.', 'rpg-suite');
-        echo '<div class="error"><p>' . esc_html($message) . '</p></div>';
-    }
-    
-    /**
-     * Display BuddyPress version notice
-     *
-     * @since 1.0.0
-     * @return void
-     */
-    public static function buddypress_version_notice() {
-        $message = sprintf(
-            /* translators: %1$s: minimum required version, %2$s: current version */
-            __('RPG-Suite requires BuddyPress version %1$s or higher. You are running version %2$s. Please upgrade BuddyPress to activate this plugin.', 'rpg-suite'),
-            self::MIN_BP_VERSION,
-            BP_VERSION
-        );
-        echo '<div class="error"><p>' . esc_html($message) . '</p></div>';
-    }
-}
-```
+The Activator class should:
 
-## Usage
+1. Be named `RPG_Suite_Activator`
+2. Be defined in file `class-activator.php`
+3. Include a main activation method that handles single site or multi-site
+4. Support silent activation for migrations during updates
+5. Register custom roles and capabilities
+6. Create default plugin settings
 
-The activator is hooked into WordPress's activation hook in the main plugin file:
+## Method Descriptions
 
-```php
-// In rpg-suite.php
-register_activation_hook(__FILE__, array('RPG_Suite_Activator', 'activate'));
-```
+### Main Activation Method
 
-## Version Upgrade Logic
+The activate() method should:
+- Accept optional boolean for silent activation
+- Check if activation is network-wide
+- For single site: call the single site activation method
+- For multi-site: iterate through sites and call single site activation for each
+- Trigger activation actions
 
-When updating the plugin, the activator checks the stored version against the current version and runs any necessary upgrade routines:
+### Single Site Activation
 
-```php
-/**
- * Run version upgrade routines if needed
- *
- * @since 1.0.0
- * @param string $current_version Current plugin version.
- * @param string $stored_version Stored plugin version.
- * @return void
- */
-private static function maybe_upgrade($current_version, $stored_version) {
-    if (version_compare($stored_version, $current_version, '<')) {
-        // Run upgrades based on version
-        if (version_compare($stored_version, '1.1.0', '<')) {
-            self::upgrade_to_110();
-        }
-        
-        // Update stored version
-        update_option('rpg_suite_version', $current_version);
-    }
-}
+The activate_single_site() method should:
+- Register character and invention post types
+- Register taxonomies
+- Create database tables if needed
+- Initialize default roles and capabilities
+- Create default plugin options
+- Flush rewrite rules when not silent
+- Log activation with timestamp and version
 
-/**
- * Upgrade to version 1.1.0
- *
- * @since 1.1.0
- * @return void
- */
-private static function upgrade_to_110() {
-    // Upgrade logic for version 1.1.0
-}
-```
+### Capability Registration
+
+The register_capabilities() method should:
+- Add post type specific capabilities to roles
+- Map capabilities to appropriate WordPress roles
+- Set up character editing permissions
+- Set up invention editing permissions
+- Add admin-only capabilities
+- Update role capabilities
+
+### Database Setup
+
+If needed, the create_tables() method should:
+- Get wpdb global instance
+- Get table names with proper prefixes
+- Set up character metadata table if not using post meta
+- Set up optional tables for performance
+- Use dbDelta for proper table creation
+- Set charset and collation
+- Handle errors during creation
+
+### Default Options
+
+The create_default_options() method should:
+- Set default character limit per user
+- Set default dice animations option
+- Set default style options
+- Set default plugin behavior options
+- Only set options if they don't already exist
+
+## Integration with Plugin Main Class
+
+The Activator should be:
+- Instantiated during plugin activation
+- Called from a static activate hook callback in the main plugin file
+- Registered with register_activation_hook()
+
+## Multisite Support
+
+For multisite support, the activator should:
+- Check if is_multisite() and if activation is network wide
+- Use the wpmu_new_blog hook for new site activations
+- Support per-site activation settings
 
 ## Implementation Notes
 
-1. **Version Requirements**: The activator enforces minimum version requirements to prevent issues.
-2. **Multisite Support**: The plugin properly handles activations in multisite environments.
-3. **User Feedback**: Clear error messages are shown if requirements aren't met.
-4. **Default Data**: Default settings are created during activation.
-5. **Graceful Handling**: The plugin deactivates itself if requirements aren't met.
-6. **Database Schema**: No custom tables are initially created, leveraging WP post types.
-7. **Upgrade Path**: The activator handles version upgrades when the plugin is updated.
+1. **Capability Mapping**: Use map_meta_cap for custom post types
+2. **Error Handling**: Log all activation errors
+3. **Multisite Support**: Handle network wide activation 
+4. **Idempotency**: Ensure multiple activations don't cause issues
+5. **Default Data**: Consider creating sample content on activation
+6. **Backward Compatibility**: Check previous version during reactivation
+7. **Performance**: Minimize impact on large sites
+8. **Class Naming**: Follows the RPG_Suite_ prefix convention for consistency
+9. **WordPress Specific**: Use WordPress functions and hooks properly

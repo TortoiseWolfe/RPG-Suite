@@ -12,107 +12,37 @@ The main plugin class (`RPG_Suite`) serves as the central access point and initi
 
 ## Class Definition
 
-```php
-/**
- * Main plugin class for RPG-Suite
- */
-class RPG_Suite {
-    /**
-     * @var RPG_Suite Singleton instance
-     */
-    private static $instance = null;
-    
-    /**
-     * @var string Plugin version
-     */
-    public $version = '1.0.0';
-    
-    /**
-     * @var string Plugin name
-     */
-    public $plugin_name = 'rpg-suite';
-    
-    /**
-     * @var Character_Manager Character management system
-     */
-    public $character_manager;
-    
-    /**
-     * @var Event_Dispatcher Event system
-     */
-    public $event_dispatcher;
-    
-    /**
-     * Private constructor to prevent direct instantiation
-     */
-    private function __construct() {
-        $this->load_dependencies();
-        $this->initialize_core();
-        $this->initialize_character_system();
-        $this->initialize_integrations();
-    }
-    
-    /**
-     * Get or create the singleton instance
-     * 
-     * @return RPG_Suite
-     */
-    public static function get_instance() {
-        if (null === self::$instance) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-    
-    /**
-     * Load required dependencies
-     * 
-     * @return void
-     */
-    private function load_dependencies() {
-        // Implementation logic
-    }
-    
-    /**
-     * Initialize core components
-     * 
-     * @return void
-     */
-    private function initialize_core() {
-        // Implementation logic
-    }
-    
-    /**
-     * Initialize character management system
-     * 
-     * @return void
-     */
-    private function initialize_character_system() {
-        // Implementation logic
-    }
-    
-    /**
-     * Initialize integrations with other plugins
-     * 
-     * @return void
-     */
-    private function initialize_integrations() {
-        // Implementation logic
-    }
-}
-```
+## Main Plugin Class Requirements
+
+The main plugin class should:
+
+1. Be named `RPG_Suite` and defined in file `class-rpg-suite.php`
+2. Implement a singleton pattern with:
+   - Private static instance property
+   - Private constructor to prevent direct instantiation
+   - Public static get_instance() method
+
+3. Maintain public properties for:
+   - Plugin version
+   - Plugin name
+   - Character manager reference (RPG_Suite_Character_Manager)
+   - Event dispatcher reference (RPG_Suite_Event_Dispatcher)
+   - Other core component references
+
+4. Include initialization methods:
+   - load_dependencies() - Load required files
+   - initialize_core() - Set up core components
+   - initialize_character_system() - Set up character management
+   - initialize_integrations() - Set up plugin integrations
 
 ## Usage Example
 
-```php
-// In plugin main file, after autoloader
-global $rpg_suite;
-$rpg_suite = RPG_Suite::get_instance();
+The main plugin class should be accessible globally:
 
-// Accessing components from anywhere
-global $rpg_suite;
-$character = $rpg_suite->character_manager->get_active_character($user_id);
-```
+1. In the plugin main file, initialize the global instance after the autoloader
+2. Register global $rpg_suite variable to provide access
+3. Enable component access from anywhere in the codebase via the global variable
+4. Allow direct method calls to component functions through the global instance
 
 ## Implementation Notes
 1. The constructor should be private to enforce singleton pattern
@@ -124,3 +54,4 @@ $character = $rpg_suite->character_manager->get_active_character($user_id);
 4. Hook registration should happen in the initialization methods
 5. The global variable should be registered early
 6. Component instances should be stored as public properties for easy access
+7. Class naming follows the RPG_Suite_ prefix convention for all plugin classes
