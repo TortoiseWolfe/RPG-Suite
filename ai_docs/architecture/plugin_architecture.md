@@ -1,215 +1,142 @@
 # RPG-Suite Plugin Architecture
 
+**Author:** TurtleWolfe
+**Repository:** https://github.com/TortoiseWolfe/RPG-Suite
+
 ## High-Level Architecture
 
-RPG-Suite follows a modular architecture with clear separation of concerns:
+RPG-Suite follows a modular architecture with clear separation of concerns. The architectural structure has been simplified based on lessons learned, focusing first on core functionality before adding complexity.
+
+### Directory Structure
 
 ```
 RPG-Suite/
 ├── rpg-suite.php              # Plugin main file
 ├── uninstall.php              # Clean uninstallation procedures
-├── includes/
+├── includes/                  # Core plugin functionality
 │   ├── class-autoloader.php   # PSR-4 autoloader
 │   ├── class-rpg-suite.php    # Main plugin class
 │   ├── class-activator.php    # Plugin activation logic
-│   │   └── database-schema.php # Database schema definitions
 │   ├── class-deactivator.php  # Plugin deactivation logic
 │   ├── core/                  # Core functionality
-│   │   ├── interface-event-subscriber.php # Event listener interface
-│   │   ├── class-event.php              # Event object
-│   │   ├── class-event-dispatcher.php    # Event system
-│   │   ├── class-die-code-utility.php   # D7 dice utility
-│   │   └── class-error-handler.php      # Error handling
 │   ├── character/             # Character management
-│   │   ├── class-character-manager.php   # Character operations
-│   │   ├── class-character-post-type.php # Custom post type registration
-│   │   ├── class-character-meta-handler.php # Meta data handling
-│   │   └── class-invention-manager.php   # Invention management
 │   ├── admin/                 # Admin functionality
-│   │   ├── class-admin.php             # Admin main class
-│   │   ├── class-character-editor.php   # Character editing UI
-│   │   └── class-settings.php          # Plugin settings
 │   ├── integrations/          # Third-party integrations
-│   │   ├── class-integration-manager.php # Manages integrations
-│   │   ├── buddypress/        # BuddyPress integration
-│   │   │   ├── class-buddypress-integration.php # Main integration class
-│   │   │   ├── class-profile-display.php  # Profile display logic
-│   │   │   └── class-buddypress-character-subscriber.php # Event subscriber
-│   │   └── ...
-│   └── utils/                 # Utility functions
-│       ├── class-template-loader.php     # Template loading
-│       └── functions.php                 # Helper functions
-└── assets/                    # Frontend assets
-    ├── css/
-    │   ├── rpg-suite-admin.css          # Admin styles
-    │   └── rpg-suite-public.css         # Public styles
-    ├── js/
-    │   ├── rpg-suite-admin.js           # Admin scripts
-    │   └── rpg-suite-public.js          # Public scripts
-    └── images/
+│   └── assets/                # Frontend assets
 ```
+
+## Development Approach
+
+The architecture is designed to be implemented in phases, with a focus on getting the core functionality working first before adding more complex features:
+
+1. **Phase 1: Core Plugin Structure**
+   - Main plugin class
+   - Autoloader
+   - Post type registration
+   - Basic admin interface
+
+2. **Phase 2: Character System**
+   - Character management
+   - Character post editing
+   - Character metadata handling
+
+3. **Phase 3: BuddyPress Integration**
+   - Profile display
+   - Character switching
+
+4. **Phase 4: Advanced Features**
+   - Event system
+   - Die code utility
+   - Template system
 
 ## Component Responsibilities
 
 ### Main Plugin Class (`RPG_Suite`)
-- Initializes all subsystems
+- Initializes the plugin
 - Provides global access point via `$rpg_suite`
-- Manages plugin lifecycle
-- Handles plugin requirements and dependencies
+- Registers core hooks
+- Initializes key components as public properties
 
 ### Autoloader
-- PSR-4 compliant class loading
-- Handles namespace to directory mapping
+- Handles class loading
+- Maps namespaces to directories
+- Uses PSR-4 convention
 
-### Core Subsystem
-- Provides fundamental services used by other components
-- Implements event system for decoupled communication
-- Handles WordPress hooks and their registration
-- Provides die code utility for d7 system
-- Error handling services
-
-### Character Subsystem
-- Manages the character post type
-- Handles character creation, editing, and deletion
-- Manages relationships between users and characters
-- Tracks active character status
-- Handles invention management
-
-### Admin Subsystem
-- Provides admin UI for character management
-- Handles plugin settings
-- Registers custom post type meta boxes
-
-### Integration Manager
-- Manages third-party integrations
-- Handles graceful fallbacks when integrations aren't available
+### Character System
+- Registers the character post type with appropriate capabilities
+- Handles character metadata storage and retrieval
+- Manages active character status for users
+- Supports multiple characters per player (limit of 2 by default)
 
 ### BuddyPress Integration
-- Displays character information on BuddyPress profiles
-- Provides character switching interface
-- Ensures proper hook registration with BuddyPress
-
-## Communication Patterns
-
-### Event System
-Components communicate through an event system to maintain loose coupling:
-
-1. Components can dispatch events
-2. Other components can subscribe to events
-3. Events carry relevant data between components
-
-Example flow:
-- Character Manager changes active character
-- "character_activated" event is dispatched
-- BuddyPress Profile component updates display in response
-
-### Dependency Injection
-- Components receive their dependencies through constructors
-- Improves testability and flexibility
-- Reduces hard dependencies between components
-
-### Service Locator Pattern
-The main plugin instance can be accessed via the global `$rpg_suite` variable or through a static method:
-```php
-// Global variable approach
-global $rpg_suite;
-$character_manager = $rpg_suite->get_character_manager();
-
-// Static method approach
-$character_manager = RPG_Suite::get_instance()->get_character_manager();
-```
+- Displays active character on BuddyPress profiles
+- Hooks into BuddyPress at the correct time in the lifecycle
+- Provides character switching UI
 
 ## WordPress Integration
 
-### Hook Registration
-- Hooks are registered at appropriate points in WordPress lifecycle
-- BuddyPress hooks use correct priorities
-- Activation/deactivation hooks handle plugin lifecycle
+### Character Post Type
+- Uses standard post capabilities for simplicity
+- Ensures proper post editing in WordPress admin
+- Registers meta fields for character attributes
 
-### Custom Post Types
-- Character data stored as custom post type
-- Custom meta fields for character attributes
-- User relationships managed through post meta
+```
+register_post_type('rpg_character', [
+    'labels' => [...],
+    'public' => true,
+    'show_ui' => true,
+    'show_in_menu' => true,
+    'show_in_rest' => true,  // Enable block editor support
+    'supports' => ['title', 'editor', 'thumbnail', 'revisions'],
+    'has_archive' => false,
+    'capability_type' => 'post',  // Use standard post capabilities
+    'map_meta_cap' => true,
+]);
+```
 
-### Database Schema
-- Custom post types registered for characters and inventions
-- Meta tables used for character attributes, skills, and other data
-- Proper indexes for performance optimization
+### Meta Fields
+- Register character attributes as post meta
+- Use standard meta API for compatibility
 
-## Error Handling Strategy
+## Global Accessibility
 
-### Consistent Error Types
-- WordPress-style errors using `WP_Error` objects
-- Descriptive error codes and messages
-- Function return values indicate success/failure
+Components are designed to be accessible throughout the plugin:
 
-### Graceful Fallbacks
-- Check for dependencies before executing dependent code
-- Provide meaningful error messages
-- Degrade functionality gracefully when dependencies are missing
+- Public properties on main plugin class
+- Global `$rpg_suite` variable
+- Consistent initialization order
 
-## Plugin Lifecycle
+## Implementation Priorities
 
-### Activation
-- Register custom post types
-- Create database tables if needed
-- Set default options
-- Check requirements (WordPress version, BuddyPress, etc.)
+1. **Post Type Functionality**
+   - Ensure character post type is properly registered
+   - Verify editing works correctly in WordPress admin
+   - Ensure text is properly visible in editor
 
-### Deactivation
-- Clean up temporary data
-- Flush rewrite rules
-- Maintain user data for later reactivation
+2. **Character Management**
+   - Store character ownership
+   - Allow multiple characters per player
+   - Track active character status
 
-### Uninstallation
-- Remove all plugin data if configured
-- Remove custom post types and their data
-- Remove plugin options
+3. **BuddyPress Display**
+   - Show active character on profile
+   - Enable character switching
 
-## Internationalization
+## CSS Implementation
 
-All user-facing strings use WordPress translation functions:
-- `__()` for simple translations
-- `_e()` for translated output
-- `_n()` for plurals
-- `_x()` for translations with context
-
-Text domain loaded early in plugin initialization.
-
-## Asset Management
-
-### CSS/JS Enqueueing
-- Assets loaded only when needed
-- Admin scripts only loaded on admin pages
-- Public scripts only loaded on relevant public pages
-- Dependencies properly declared
-- Versioning for cache busting
-
-### CSS Organization
-- BuddyX theme compatibility through variable usage
-- Scoped selectors to prevent conflicts
+- Admin styles ensure proper text visibility in editor
+- BuddyPress styles use appropriate specificity
+- Avoid excessive !important declarations
 
 ## Testing Strategy
 
-### Unit Testing
-- PHP Unit for testing utility classes
-- Separation of logic from WordPress specifics for better testability
-
-### Integration Testing
-- WordPress test suite for WordPress integration
-- Mock objects for external dependencies
-
-### Manual Testing Checklist
-- Plugin activation/deactivation
-- Character creation, editing, deletion
-- BuddyPress profile integration
-- Admin interface
-- Frontend display
+- Test post type functionality first in browser environment
+- Verify actual user experience
+- Ensure compatibility with Yoast SEO and other common plugins
 
 ## Coding Standards
 
-The plugin follows WordPress Coding Standards with PSR-4 class loading:
+The plugin follows WordPress Coding Standards:
 - WordPress naming conventions for functions and hooks
 - PSR-4 for class names and namespaces
 - Comprehensive inline documentation
-- PHPDoc blocks for all classes and methods

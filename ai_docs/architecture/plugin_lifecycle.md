@@ -1,6 +1,9 @@
 # Plugin Lifecycle Management
 
-This document details how RPG-Suite manages its lifecycle from installation through uninstallation, including activation, deactivation, and upgrade procedures.
+**Author:** TurtleWolfe
+**Repository:** https://github.com/TortoiseWolfe/RPG-Suite
+
+This document outlines how RPG-Suite manages its lifecycle, including activation, deactivation, and uninstallation processes.
 
 ## Installation and Activation
 
@@ -14,277 +17,149 @@ RPG-Suite requires:
 
 ### Activation Procedure
 
-When the plugin is activated, the following occurs:
+When the plugin is activated, it performs these essential tasks:
 
-```php
+1. **Requirement Check**: Verify WordPress and PHP versions
+2. **BuddyPress Check**: Verify BuddyPress is active
+3. **Register Post Types**: Register the character post type
+4. **Register Meta Fields**: Register character attribute meta fields
+5. **Flush Rewrite Rules**: Update permalink structure
+
+### Activation Hook
+
+The plugin uses WordPress's standard activation hook:
+
+```
 register_activation_hook(__FILE__, array('RPG_Suite_Activator', 'activate'));
 ```
 
-The activation class performs these tasks:
+### Post Type Registration
 
-1. **Version Check**: Verifies WordPress and PHP versions
-2. **BuddyPress Check**: Verifies BuddyPress is active
-3. **Database Setup**:
-   - Registers custom post types
-   - Creates any custom database tables
-   - Sets default options
-4. **Flush Rewrite Rules**: Updates permalink structure for custom post types
-5. **Create Default Data**: Sets up default character classes, templates, etc.
-6. **Version Storage**: Stores current plugin version for future updates
+During activation, the character post type is registered with standard post capabilities for simplicity and reliability:
+
+```
+register_post_type('rpg_character', [
+    'labels' => [
+        'name' => __('Characters', 'rpg-suite'),
+        'singular_name' => __('Character', 'rpg-suite'),
+        // Other labels...
+    ],
+    'public' => true,
+    'show_ui' => true,
+    'show_in_menu' => true,
+    'show_in_rest' => true,  // Enable block editor support
+    'supports' => ['title', 'editor', 'thumbnail', 'revisions'],
+    'has_archive' => false,
+    'capability_type' => 'post',  // Use standard post capabilities
+    'map_meta_cap' => true,
+]);
+```
 
 ### Dependency Handling
 
-If dependencies are missing:
+If required dependencies are missing:
 
-1. Display admin notice explaining missing requirements
+1. Display an admin notice explaining what's missing
 2. Auto-deactivate the plugin
-3. Provide helpful links to install required plugins
-
-```php
-public static function check_dependencies() {
-    $requirements_met = true;
-    
-    // WordPress version check
-    if (version_compare(get_bloginfo('version'), '5.7', '<')) {
-        add_action('admin_notices', array('RPG_Suite_Activator', 'wordpress_version_notice'));
-        $requirements_met = false;
-    }
-    
-    // PHP version check
-    if (version_compare(PHP_VERSION, '7.2', '<')) {
-        add_action('admin_notices', array('RPG_Suite_Activator', 'php_version_notice'));
-        $requirements_met = false;
-    }
-    
-    // BuddyPress dependency check
-    if (!class_exists('BuddyPress')) {
-        add_action('admin_notices', array('RPG_Suite_Activator', 'buddypress_missing_notice'));
-        $requirements_met = false;
-    }
-    
-    return $requirements_met;
-}
-```
+3. Provide links to install required plugins
 
 ## Deactivation
 
-When the plugin is deactivated:
+When the plugin is deactivated, it:
 
-```php
-register_deactivation_hook(__FILE__, array('RPG_Suite_Deactivator', 'deactivate'));
+1. **Preserves Data**: All character data remains in the database
+2. **Flushes Rewrite Rules**: Cleans up permalink structure
+3. **Clears Caches**: Removes any transients or cached data
+
+### Deactivation Hook
+
 ```
-
-The deactivation class performs these tasks:
-
-1. **Flush Rewrite Rules**: Clean up permalink structure
-2. **Clear Caches**: Remove any transients or cached data
-3. **Cleanup Temporary Data**: Remove any temporary files or data
-4. **Preserve User Data**: Character data remains in the database
-5. **Remove Scheduled Events**: Clear any scheduled WP Cron events
-
-```php
-public static function deactivate() {
-    // Clear any scheduled cron jobs
-    wp_clear_scheduled_hook('rpg_suite_daily_maintenance');
-    
-    // Clear transients
-    delete_transient('rpg_suite_character_cache');
-    
-    // Flush rewrite rules
-    flush_rewrite_rules();
-}
+register_deactivation_hook(__FILE__, array('RPG_Suite_Deactivator', 'deactivate'));
 ```
 
 ## Uninstallation
 
-When the plugin is deleted, uninstall.php is executed:
+When the plugin is deleted, it can optionally remove all plugin data:
 
-```php
+1. **Check Setting**: Only delete data if the user has enabled this option
+2. **Remove Characters**: Delete all character posts
+3. **Remove Options**: Delete all plugin options
+4. **Remove User Meta**: Delete related user metadata
+
+### Uninstall File
+
+The plugin uses WordPress's standard uninstall.php file:
+
+```
 // In uninstall.php
 if (!defined('WP_UNINSTALL_PLUGIN')) {
     exit;
 }
 
-// Load the uninstaller class
-require_once plugin_dir_path(__FILE__) . 'includes/class-rpg-suite-uninstaller.php';
-
-// Run uninstallation
-RPG_Suite_Uninstaller::uninstall();
-```
-
-The uninstaller performs:
-
-1. **Check Uninstall Option**: Only delete data if 'remove_data_on_uninstall' option is enabled
-2. **Remove Post Types**: Delete all 'rpg_character' and 'rpg_invention' post types
-3. **Remove Options**: Delete all options with 'rpg_suite_' prefix
-4. **Remove User Meta**: Delete user meta with 'rpg_' prefix
-5. **Remove Capabilities**: Remove any custom capabilities added by the plugin
-6. **Remove Custom Database Tables**: If any were created
-
-```php
-public static function uninstall() {
-    // Check if we should remove data
-    $remove_data = get_option('rpg_suite_remove_data_on_uninstall', false);
-    if (!$remove_data) {
-        return;
-    }
-    
-    // Delete all character posts
-    $character_posts = get_posts(array(
-        'post_type' => 'rpg_character',
-        'numberposts' => -1,
-        'fields' => 'ids',
-    ));
-    
-    foreach ($character_posts as $post_id) {
-        wp_delete_post($post_id, true);
-    }
-    
-    // Delete all invention posts
-    $invention_posts = get_posts(array(
-        'post_type' => 'rpg_invention',
-        'numberposts' => -1,
-        'fields' => 'ids',
-    ));
-    
-    foreach ($invention_posts as $post_id) {
-        wp_delete_post($post_id, true);
-    }
-    
-    // Delete options
-    global $wpdb;
-    $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'rpg_suite_%'");
-    
-    // Delete user meta
-    $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE '_rpg_%'");
-}
-```
-
-## Version Upgrades
-
-RPG-Suite includes a version-based upgrade system:
-
-1. **Version Tracking**: Store the current plugin version in the database
-2. **Upgrade Detection**: Compare stored version with current version on plugin load
-3. **Upgrade Routines**: Run appropriate upgrade routines for each version increment
-4. **Database Schema Updates**: Handle database changes gracefully
-
-```php
-public function check_version() {
-    $installed_version = get_option('rpg_suite_version', '0.0.0');
-    $current_version = RPG_SUITE_VERSION;
-    
-    if (version_compare($installed_version, $current_version, '<')) {
-        $upgrader = new RPG_Suite_Upgrader();
-        $upgrader->upgrade($installed_version, $current_version);
-        
-        update_option('rpg_suite_version', $current_version);
-    }
-}
-```
-
-### Upgrade Example
-
-```php
-public function upgrade($from_version, $to_version) {
-    // Run all applicable upgrade routines
-    if (version_compare($from_version, '1.1.0', '<')) {
-        $this->upgrade_to_1_1_0();
-    }
-    
-    if (version_compare($from_version, '1.2.0', '<')) {
-        $this->upgrade_to_1_2_0();
-    }
-    
-    // Always run database upgrade
-    $this->upgrade_database();
+// Check if we should remove data
+$remove_data = get_option('rpg_suite_remove_data_on_uninstall', false);
+if (!$remove_data) {
+    return;
 }
 
-private function upgrade_to_1_1_0() {
-    // Add new meta fields to existing characters
-    $characters = get_posts(array(
-        'post_type' => 'rpg_character',
-        'numberposts' => -1,
-    ));
-    
-    foreach ($characters as $character) {
-        $attributes = get_post_meta($character->ID, '_rpg_attributes', true);
-        if (!isset($attributes['new_attribute'])) {
-            $attributes['new_attribute'] = '2d7';
-            update_post_meta($character->ID, '_rpg_attributes', $attributes);
-        }
-    }
+// Delete character posts
+$character_posts = get_posts([
+    'post_type' => 'rpg_character',
+    'numberposts' => -1,
+    'fields' => 'ids',
+]);
+
+foreach ($character_posts as $post_id) {
+    wp_delete_post($post_id, true);
 }
+
+// Delete plugin options
+delete_option('rpg_suite_version');
+delete_option('rpg_suite_remove_data_on_uninstall');
+// Delete other options...
+
+// Delete user meta
+global $wpdb;
+$wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE '_rpg_%'");
 ```
 
-## Error Handling and Recovery
+## Version Management
 
-### Graceful Error Handling
+The plugin tracks its version to manage updates:
 
-RPG-Suite includes error handling for common issues:
+1. **Version Storage**: Store the plugin version in options table
+2. **Version Check**: Compare stored version with current version on plugin load
+3. **Update Process**: Run any necessary updates when the version changes
 
-1. **Database Errors**: Catch and log database errors
-2. **Missing Dependencies**: Detect and notify about missing plugins
-3. **Version Conflicts**: Handle WordPress version incompatibilities
+## Implementation Approach
 
-### Rollback Mechanism
+Our implementation focuses on:
 
-For critical upgrades, a rollback system is implemented:
+1. **Simplicity**: Keep activation and deactivation processes simple
+2. **Standard WordPress Patterns**: Use WordPress's built-in hooks and functions
+3. **Data Safety**: Preserve user data by default
+4. **Graceful Failures**: Handle missing dependencies without breaking the site
 
-1. **Backup Data**: Before upgrade, backup critical data
-2. **Transaction-like Processing**: Perform upgrades in stages
-3. **Validation**: Verify successful upgrade before committing
-4. **Rollback**: If upgrade fails, restore from backup
+## Error Handling
 
-```php
-private function safe_upgrade($callback) {
-    // Backup critical data
-    $backup = $this->backup_critical_data();
-    
-    try {
-        // Perform upgrade steps
-        $result = call_user_func($callback);
-        
-        // Validate the upgrade
-        if (!$this->validate_upgrade()) {
-            throw new Exception('Upgrade validation failed');
-        }
-        
-        return true;
-    } catch (Exception $e) {
-        // Log the error
-        error_log('RPG-Suite upgrade failed: ' . $e->getMessage());
-        
-        // Rollback
-        $this->restore_from_backup($backup);
-        
-        return false;
-    }
-}
-```
+The plugin handles errors by:
 
-## Multisite Compatibility
+1. **Informative Messages**: Display helpful admin notices
+2. **Graceful Deactivation**: Auto-deactivate when requirements aren't met
+3. **Error Logging**: Log errors for troubleshooting
 
-RPG-Suite supports WordPress multisite installations:
+## Testing Methodology
 
-1. **Network Activation**: Handle network-wide activation properly
-2. **Per-Site Installation**: Create database tables for each site
-3. **Network Settings**: Provide network admin settings when appropriate
+To ensure proper lifecycle management:
 
-```php
-public static function activate_multisite($network_wide) {
-    if ($network_wide) {
-        // Get all blog ids
-        global $wpdb;
-        $blog_ids = $wpdb->get_col("SELECT blog_id FROM $wpdb->blogs");
-        
-        foreach ($blog_ids as $blog_id) {
-            switch_to_blog($blog_id);
-            self::single_activate();
-            restore_current_blog();
-        }
-    } else {
-        self::single_activate();
-    }
-}
-```
+1. **Test in Browser**: All activation processes should be tested in a browser environment
+2. **Test with Other Plugins**: Verify compatibility with common plugins
+3. **Test Deactivation**: Ensure clean deactivation without errors
+4. **Test Reactivation**: Verify the plugin can be reactivated without issues
+
+## Multisite Support
+
+Basic multisite support is included:
+
+1. **Network Activation**: Support plugin activation across all sites
+2. **Per-Site Configuration**: Allow configuration on a per-site basis

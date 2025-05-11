@@ -1,134 +1,139 @@
-# RPG-Suite Development Guide (Revised)
+# RPG-Suite Development Guide
 
-This document outlines the core development approach for the RPG-Suite WordPress plugin, incorporating lessons learned from previous implementation.
+**Author:** TurtleWolfe
+**Repository:** https://github.com/TortoiseWolfe/RPG-Suite
 
-## Implementation Phases
+## Overview
 
-### Phase 1: Core Foundation
+RPG-Suite is a WordPress plugin that adds role-playing game functionality to WordPress sites using BuddyPress. It features a unique d7-based dice system set in a steampunk world of airships and mechanical inventions.
 
-1. **Plugin Structure**
-   - Create main plugin file with global access pattern
-   - Set up activation/deactivation hooks
-   - Implement proper autoloader that preserves underscores in class names
+## Development Philosophy
 
-2. **Character System**
-   - Register character post type with custom capability type
-   - Set up relationship between players and characters
-   - Use proper auth callbacks for character meta fields
+Based on our lessons learned, we've adopted a **Simplicity First** approach. Rather than building a complex architecture upfront, we're implementing the plugin incrementally, starting with the most essential functionality:
 
-3. **BuddyPress Integration**
-   - Display active character on BuddyPress profiles using standard hooks
-   - Ensure compatibility with BuddyX theme through standard hooks
-   - Use direct admin URLs to avoid conflicts with other plugins
+1. First, establish a working character post type with proper editing
+2. Then add character attributes and BuddyPress integration
+3. Finally implement the more complex systems (dice, events, etc.)
 
-### Phase 2: Character Progression
+## Current Focus Areas
 
-1. **Multiple Characters**
-   - Allow players to create multiple characters
-   - Implement active character tracking
-   - Use post meta for character ownership and active status
+We're focusing on two critical issues:
 
-2. **Character Switching**
-   - Allow character switching from profile
-   - Store active character in character meta, not user meta
-   - Test in browser environment with real user sessions
+1. **Character Editing**: Ensuring characters can be properly created and edited in WordPress admin
+2. **Editor Visibility**: Making sure text is visible (not white on white) in the WordPress editor
 
-## Global Access Pattern
+## Technical Implementation
 
-The plugin uses a global variable for access across the site:
+### Character System
 
-```php
-// In main plugin file
-function rpg_suite_init() {
-  global $rpg_suite;
-  $rpg_suite = new RPG_Suite();
-  $rpg_suite->run();
-}
-
-// Helper function
-function rpg_suite() {
-  global $rpg_suite;
-  return $rpg_suite;
-}
-```
-
-## Character Post Type
+The character system uses WordPress custom post types with standard capabilities:
 
 ```php
 register_post_type('rpg_character', [
-  'labels' => [
-    'name' => __('Characters', 'rpg-suite'),
-    'singular_name' => __('Character', 'rpg-suite'),
-  ],
-  'public' => true,
-  'has_archive' => true,
-  'menu_icon' => 'dashicons-admin-users',
-  'supports' => ['title', 'editor', 'thumbnail', 'author', 'custom-fields'],
-  'capability_type' => 'rpg_character', // Custom capability type
-  'map_meta_cap' => true,               // Enable capability mapping
+    'public' => true,
+    'show_ui' => true,
+    'show_in_menu' => true,
+    'show_in_rest' => true,  // Enable block editor support
+    'capability_type' => 'post',  // Standard post capabilities
+    'map_meta_cap' => true,
 ]);
 ```
 
-## BuddyPress Integration
+Character attributes are stored as post meta:
+
+- **_rpg_active**: Whether this is the user's active character (boolean)
+- **_rpg_class**: Character class/profession (string)
+- **_rpg_attributes**: Character attributes for the d7 system (object)
+
+### Admin Visibility Fix
+
+To ensure text is visible in the WordPress editor:
 
 ```php
-// Register hook for BuddyPress profiles with standard priority
-add_action('bp_init', 'register_buddypress_hooks', 20);
-
-function register_buddypress_hooks() {
-  if (function_exists('buddypress')) {
-    // Use standard hook points without excessive registrations
-    add_action('bp_member_header_meta', 'display_character_in_profile');
-    
-    // BuddyX theme hook if needed
-    if ('buddyx' === wp_get_theme()->get_template()) {
-      add_action('buddyx_member_header_meta', 'display_character_in_profile');
-    }
-  }
+function rpg_suite_admin_styles() {
+    echo '<style>
+        .editor-styles-wrapper {
+            color: #333 !important;
+        }
+    </style>';
 }
+add_action('admin_head', 'rpg_suite_admin_styles');
 ```
 
-## Meta Registration
+### BuddyPress Integration
+
+BuddyPress integration displays the active character on user profiles using standard hooks:
 
 ```php
-// Register character meta fields with proper auth callbacks
-register_post_meta('rpg_character', '_rpg_attribute_fortitude', [
-  'type' => 'string',
-  'description' => 'Character fortitude attribute',
-  'single' => true,
-  'show_in_rest' => true,
-  'auth_callback' => function($allowed, $meta_key, $post_id) {
-    // Check post type AND capability
-    return get_post_type($post_id) === 'rpg_character' && 
-           current_user_can('edit_rpg_character', $post_id);
-  }
-]);
+add_action('bp_before_member_header_meta', 'rpg_suite_display_character');
 ```
 
-## URL Construction
+Character switching is implemented through a simple interface on the profile page.
 
-```php
-// Use direct admin URLs to avoid conflicts
-function get_character_edit_url($character_id) {
-  return admin_url('post.php?post=' . $character_id . '&action=edit');
-}
-```
+## Implementation Phases
 
-## Testing Strategy
+### Phase 1: Core Functionality
+- Working character post type with proper editing
+- Basic character attributes and metadata
+- Admin styles for text visibility
 
-1. **CLI Testing**: Use for non-user-dependent features only
-   - Autoloader functionality
-   - Post type registration
-   - Meta field registration
+### Phase 2: Character Management
+- Support for multiple characters per user
+- Active character tracking
+- Character limit (2 per user by default)
 
-2. **Browser Testing**: Required for user-dependent features
-   - BuddyPress profile display
-   - Character switching
-   - Character editing
-   - Permission checks
+### Phase 3: BuddyPress Integration
+- Display character on user profiles
+- Character switching functionality
+- BuddyX theme compatibility
 
-3. **Test Environment**:
-   - WordPress 6.8+
-   - BuddyPress 14.3+
-   - BuddyX theme 4.8+
-   - PHP 8.2+
+### Phase 4: Advanced Features
+- D7 dice system implementation
+- Character skills and progression
+- Event system for plugin communication
+
+## Development Guidelines
+
+### Testing Requirements
+- Always test character creation/editing in a browser
+- Verify visual appearance of all elements
+- Test with different user roles
+- Check compatibility with Yoast SEO and other plugins
+
+### Code Organization
+- Start with simple procedural approach
+- Move to OOP after core functionality works
+- Use WordPress coding standards
+- Properly document all functions and hooks
+
+### Debugging
+- Be aware of potential debug output affecting headers
+- Check for white text on white backgrounds
+- Test all features with debug mode enabled
+
+## Implementation Priority
+
+1. **Fix character editing functionality** in WordPress admin
+   - Use standard post capabilities
+   - Enable block editor support
+   - Add visible styles for the editor
+
+2. **Implement character metadata**
+   - Store character class and attributes
+   - Add meta boxes to the editor
+   - Validate and sanitize data
+
+3. **Add BuddyPress integration**
+   - Display character on profiles
+   - Create character switching
+   - Style for BuddyX theme
+
+4. **Enable multiple characters**
+   - Track active status
+   - Enforce character limits
+   - Allow character management
+
+5. **Implement d7 system features**
+   - Die code utilities
+   - Character progression
+   - Skills and inventions
