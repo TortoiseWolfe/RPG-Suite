@@ -1,4 +1,4 @@
-# BuddyPress Profile Integration Specification
+# BuddyPress Profile Integration Specification - REVISED
 
 ## Purpose
 This specification defines how RPG-Suite integrates with BuddyPress to display character information on user profiles and provide character management functionality.
@@ -9,28 +9,15 @@ This specification defines how RPG-Suite integrates with BuddyPress to display c
 3. Ensure compatibility with BuddyX theme
 4. Register hooks at appropriate times in BuddyPress lifecycle
 5. Make character data accessible through global plugin instance
-6. Display d7 system attributes and skills
+
+## Lessons Learned from Previous Implementation
+1. **Simplify Hook Registration**: Use only standard BuddyPress hooks with normal priorities
+2. **Avoid Excessive Fallbacks**: Focus on one primary display approach rather than multiple fallbacks
+3. **Use Browser Testing Only**: Test user-dependent features in browsers, not CLI environments
+4. **Direct Admin URLs**: Use admin_url() directly to construct edit URLs to avoid conflicts
+5. **Simplify CSS/JS**: Keep styling and JavaScript simple without excessive !important declarations
 
 ## Component Structure
-
-### Profile Display Class
-
-The Profile Display class should:
-1. Be named `RPG_Suite_Profile_Display`
-2. Be defined in file `class-profile-display.php`
-3. Have dependencies on RPG_Suite_Character_Manager and RPG_Suite_Die_Code_Utility
-4. Initialize with proper constructor parameters
-5. Register hooks for:
-   - Displaying character info in profile header
-   - Setting up character navigation tabs
-   - Enqueueing CSS and JavaScript assets
-6. Implement methods for:
-   - display_character_info(): Shows active character in profile
-   - setup_character_nav(): Adds character management tab
-   - enqueue_assets(): Loads styles for BP profiles
-   - display_character_screen(): Shows character management screen
-
-**Critical: Hook registration must occur at the correct time in BuddyPress lifecycle**
 
 ### BuddyPress Integration Class
 
@@ -40,145 +27,287 @@ The BuddyPress Integration class should:
 3. Have dependencies on:
    - RPG_Suite_Character_Manager
    - RPG_Suite_Event_Dispatcher
-   - RPG_Suite_Die_Code_Utility
-4. Store a Profile_Display instance
-5. Initialize the integration with these steps:
+4. Initialize the integration with these steps:
    - Check if BuddyPress is active
-   - Create the Profile_Display instance
-   - **CRITICAL: Register hooks on 'bp_init' with priority 20** to ensure BP is fully loaded
-   - Register event subscribers
-6. Implement methods:
-   - initialize(): Sets up the integration
-   - register_hooks(): Calls the Profile Display hook registration
-   - register_event_subscribers(): Sets up event listening
+   - Register a focused set of hooks on 'bp_init' with priority 20
+   - Register CSS and JS assets
+5. Implement methods:
+   - initialize_hooks(): Register necessary profile display hooks
+   - display_active_character(): Show character information
+   - add_character_switch_button(): Add the character switcher UI
+   - handle_character_switch_ajax(): Process AJAX requests for character switching
+   - enqueue_assets(): Register and enqueue CSS/JS files
 
-**This timing issue is critical - hooks must be registered after BuddyPress is fully loaded**
+## Revised Hook Registration Approach
 
-## Profile Display Implementation
+```php
+/**
+ * Initialize BuddyPress hooks
+ */
+public function initialize_hooks() {
+    // Primary display hook - most compatible across themes
+    add_action('bp_after_member_header', array($this, 'display_active_character'), 20);
+    
+    // BuddyX theme specific hook if needed
+    if ($this->is_buddyx_theme) {
+        add_action('buddyx_member_header', array($this, 'display_active_character'), 20);
+    }
+    
+    // Character switch button
+    add_action('bp_member_header_actions', array($this, 'add_character_switch_button'), 20);
+    
+    // Register AJAX handler for character switching
+    add_action('wp_ajax_rpg_suite_switch_character', array($this, 'handle_character_switch_ajax'));
+    
+    // Enqueue necessary styles and scripts
+    add_action('wp_enqueue_scripts', array($this, 'enqueue_assets'), 20);
+}
+```
 
-### Character Information Display
+## Character Display Implementation
 
-The display_character_info() method should:
+The display_active_character() method should:
 
 1. Get the displayed user ID using bp_displayed_user_id()
 2. Retrieve the active character using the character manager
 3. Display a message if no character is active
 4. If a character exists, display:
-   - Character name with proper linking
+   - Character name
    - Character class
-   - Character attributes with formatted values
-   - Featured invention if available
+   - Character attributes
 5. Use proper HTML structure with appropriate CSS classes
 6. Apply proper escaping for all output
 
-**CRITICAL: The following implementations must also be added:**
-1. Multiple hook points for different theme compatibility
-2. Fallback JavaScript injection for compatibility with BuddyX theme
-3. Direct DOM targeting for BuddyX-specific elements
-4. Debug logging to track when and if display functions are called
+```php
+/**
+ * Display active character in profile
+ */
+public function display_active_character() {
+    // Only display on BP profile pages
+    if (!function_exists('bp_is_user') || !bp_is_user()) {
+        return;
+    }
+    
+    $user_id = bp_displayed_user_id();
+    $active_character = $this->character_manager->get_active_character($user_id);
+    
+    if (!$active_character) {
+        return;
+    }
+    
+    // Get character attributes
+    $attributes = array(
+        'fortitude' => get_post_meta($active_character->ID, '_rpg_attribute_fortitude', true),
+        'precision' => get_post_meta($active_character->ID, '_rpg_attribute_precision', true),
+        'intellect' => get_post_meta($active_character->ID, '_rpg_attribute_intellect', true),
+        'charisma'  => get_post_meta($active_character->ID, '_rpg_attribute_charisma', true),
+    );
+    
+    // Character class
+    $character_class = get_post_meta($active_character->ID, '_rpg_class', true);
+    
+    // HTML structure with appropriate classes
+    ?>
+    <div class="rpg-suite-character-display">
+        <h4><?php echo esc_html__('Active Character', 'rpg-suite'); ?></h4>
+        <div class="rpg-suite-character-name">
+            <?php echo esc_html($active_character->post_title); ?>
+            <?php if ($character_class): ?>
+                <span class="rpg-suite-character-class">(<?php echo esc_html($character_class); ?>)</span>
+            <?php endif; ?>
+        </div>
+        
+        <div class="rpg-suite-attributes">
+            <?php foreach ($attributes as $name => $value): ?>
+                <?php if ($value): ?>
+                    <div class="rpg-suite-attribute">
+                        <span class="rpg-suite-attribute-name"><?php echo esc_html(ucfirst($name)); ?>:</span>
+                        <span class="rpg-suite-attribute-value"><?php echo esc_html($value); ?></span>
+                    </div>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+        
+        <?php if (get_current_user_id() === $user_id || current_user_can('edit_rpg_character', $active_character->ID)): ?>
+            <div class="rpg-suite-character-actions">
+                <?php
+                // Use direct admin URL to avoid conflicts
+                $edit_url = admin_url('post.php?post=' . $active_character->ID . '&action=edit');
+                ?>
+                <a href="<?php echo esc_url($edit_url); ?>" class="rpg-suite-edit-character button">
+                    <?php echo esc_html__('Edit Character', 'rpg-suite'); ?>
+                </a>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+```
 
-### Character Management Tab
+## Character Switching Implementation
 
-The setup_character_nav() method should:
+The add_character_switch_button() method should:
 
-1. Check permissions before adding tabs (only show for profile owner or admin)
-2. Add a main navigation item for Characters
-3. Add sub-navigation items:
-   - Manage Characters (default)
-   - Inventions
-4. Set up proper screen functions for each tab
-5. Ensure URLs are correctly generated with bp_displayed_user_domain()
-6. Position tabs appropriately in the navigation menu
+1. Only display for the profile owner
+2. Retrieve the user's characters from the character manager
+3. Only show if the user has multiple characters
+4. Display a dropdown with all available characters
+5. Indicate which character is currently active
+6. Include proper nonces for security
 
-### Character Switching Interface
+```php
+/**
+ * Add character switch button
+ */
+public function add_character_switch_button() {
+    // Only display on BP profile pages
+    if (!function_exists('bp_is_user') || !bp_is_user()) {
+        return;
+    }
+    
+    $user_id = bp_displayed_user_id();
+    
+    // Only show for profile owner
+    if (get_current_user_id() !== $user_id) {
+        return;
+    }
+    
+    $characters = $this->character_manager->get_user_characters($user_id);
+    
+    // Only show if user has multiple characters
+    if (count($characters) <= 1) {
+        return;
+    }
+    
+    // Create nonce for security
+    $nonce = wp_create_nonce('rpg_suite_switch_character');
+    
+    ?>
+    <div class="generic-button rpg-suite-character-switcher">
+        <a href="#" class="rpg-suite-character-switch-button">
+            <?php echo esc_html__('Switch Character', 'rpg-suite'); ?>
+        </a>
+        
+        <div class="rpg-suite-character-switcher-dropdown">
+            <h4><?php echo esc_html__('Select Character', 'rpg-suite'); ?></h4>
+            <ul class="rpg-suite-character-list">
+                <?php foreach ($characters as $character): ?>
+                    <?php
+                    $is_active = (bool) get_post_meta($character->ID, '_rpg_active', true);
+                    $class = $is_active ? 'rpg-suite-character-item active' : 'rpg-suite-character-item';
+                    ?>
+                    <li class="<?php echo esc_attr($class); ?>">
+                        <a href="#" class="rpg-suite-switch-to-character" 
+                            data-character-id="<?php echo esc_attr($character->ID); ?>"
+                            data-nonce="<?php echo esc_attr($nonce); ?>">
+                            <span class="rpg-suite-character-name"><?php echo esc_html($character->post_title); ?></span>
+                            <?php if ($is_active): ?>
+                                <span class="rpg-suite-active-indicator">(<?php echo esc_html__('Active', 'rpg-suite'); ?>)</span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </div>
+    <?php
+}
+```
 
-The display_character_content() method should:
+## CSS and JavaScript Implementation
 
-1. Get the current user's characters from the character manager
-2. Identify which character is currently active
-3. Process character switching form submissions with nonce verification
-4. Display a list of the user's characters with:
-   - Character name and class
-   - Active/inactive status
-   - Activation button for inactive characters
-   - Character attributes with proper d7 dice notation
-   - Count of inventions for each character
-5. Show a button to create a new character if under the character limit
-6. Apply proper styling and HTML structure for the interface
+### CSS
 
-The display_inventions_screen() method should:
-1. Set up the proper BuddyPress template structure
-2. Load the inventions content via template hooks
+The CSS should:
+1. Use a simple, clean design without excessive overrides
+2. Avoid overuse of !important declarations
+3. Use a consistent naming scheme with rpg-suite- prefix
+4. Support basic responsive design principles
 
-The display_inventions_content() method should:
-1. Get the active character for the current user
-2. Display a message if no active character exists
-3. Show a list of the character's inventions with:
-   - Invention name and complexity
-   - Description and effects
-   - Components list
-4. Include a button to create new inventions for the profile owner
+### JavaScript
 
-## CSS Integration
+The JavaScript should:
+1. Be kept simple and focused on core functionality
+2. Implement character switching functionality
+3. Use standard jQuery patterns
+4. Avoid excessive DOM manipulation
+5. Focus on user interaction without debugging code
 
-### Profile Display Styling
-
-The enqueue_assets() method should:
-
-1. Check if the current page is a BuddyPress user profile
-2. Conditionally enqueue CSS for BuddyPress integration
-3. Include appropriate dependencies and version information
-4. Register the CSS with WordPress properly
-
-### BuddyX Theme Compatibility
-
-CSS should be provided for specific BuddyX theme compatibility including:
-
-1. Styling for the character info container
-2. Character name styling that respects theme colors
-3. Attribute display formatting (flex layout)
-4. Proper spacing and margins for all elements
-5. Color scheme integration with theme variables
-6. Responsive design considerations
-7. Character management interface styling
-
-**CRITICAL: BuddyX compatibility requires both appropriate CSS and JavaScript targeting of theme-specific elements**
-
-## Event Integration
-
-### BuddyPress Character Subscriber
-
-The BuddyPress Character Subscriber class should:
-
-1. Be named `RPG_Suite_BuddyPress_Character_Subscriber`
-2. Be defined in file `class-buddypress-character-subscriber.php`
-3. Implement the RPG_Suite_Event_Subscriber interface
-4. Have a dependency on RPG_Suite_Profile_Display
-5. Subscribe to these events:
-   - character_activated
-   - character_updated
-   - character_deleted
-   - invention_created
-   - invention_updated
-6. Implement event handlers for each event type
-7. Handle profile cache refreshing and UI updates as needed
+```javascript
+(function($) {
+    'use strict';
+    
+    // Character management for BuddyPress profiles
+    const RPGSuiteBP = {
+        init: function() {
+            this.setupCharacterSwitcher();
+        },
+        
+        setupCharacterSwitcher: function() {
+            // Toggle character switcher dropdown
+            $(document).on('click', '.rpg-suite-character-switch-button', function(e) {
+                e.preventDefault();
+                $('.rpg-suite-character-switcher-dropdown').toggleClass('active');
+            });
+            
+            // Close dropdown when clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.rpg-suite-character-switcher').length) {
+                    $('.rpg-suite-character-switcher-dropdown').removeClass('active');
+                }
+            });
+            
+            // Character switch action
+            $(document).on('click', '.rpg-suite-switch-to-character', function(e) {
+                e.preventDefault();
+                
+                const characterId = $(this).data('character-id');
+                const nonce = $(this).data('nonce');
+                
+                // Show loading state
+                $('.rpg-suite-character-switcher').addClass('loading');
+                
+                $.ajax({
+                    url: rpg_suite_bp.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'rpg_suite_switch_character',
+                        character_id: characterId,
+                        nonce: nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Reload the page to show the new active character
+                            window.location.reload();
+                        } else {
+                            // Show error message
+                            alert(response.data.message || 'Error switching character');
+                        }
+                    },
+                    error: function() {
+                        alert('Network error when switching character');
+                    },
+                    complete: function() {
+                        $('.rpg-suite-character-switcher').removeClass('loading');
+                        $('.rpg-suite-character-switcher-dropdown').removeClass('active');
+                    }
+                });
+            });
+        }
+    };
+    
+    // Initialize when document is ready
+    $(document).ready(function() {
+        RPGSuiteBP.init();
+    });
+    
+})(jQuery);
+```
 
 ## Implementation Notes
 
-1. **Hook Registration Timing**: Hooks must be registered at the correct time in the BuddyPress lifecycle, using bp_init with priority 20 to ensure BuddyPress is fully loaded
-
-2. **Component Access**: Character data should be accessible through the global plugin instance with proper method calls
-
-3. **Permission Checks**: Always verify user permissions before displaying management UI by checking bp_is_my_profile() and current_user_can()
-
-4. **BuddyX Compatibility**: Ensure compatibility with the BuddyX theme using both specific CSS classes and JavaScript DOM targeting
-
-5. **d7 System Display**: Present d7 dice codes in a clear format for character attributes
-
-6. **Security**: Always validate and sanitize input/output with WordPress functions and nonce verification
-
-7. **Multiple Hook Points**: Register display functions on multiple hook points to ensure compatibility with different themes
-
-8. **URL Handling**: Ensure character edit URLs use direct admin URL construction rather than get_edit_post_link() to avoid conflicts with GamiPress
-
-9. **Class Naming**: All class names follow the RPG_Suite_ prefix convention for consistency
+1. **Simplified Hook Registration**: Use only the necessary hooks, avoiding excessive registrations
+2. **Browser Testing**: Always test user-dependent features in a browser environment with real user sessions
+3. **Direct Admin URLs**: Use admin_url() directly, not get_edit_post_link(), to avoid conflicts
+4. **Clean CSS/JS**: Keep styling and scripts simple and focused, avoiding overengineering
+5. **Proper Capability Checks**: Use post-specific capabilities when checking permissions
