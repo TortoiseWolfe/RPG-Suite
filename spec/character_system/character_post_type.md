@@ -42,16 +42,17 @@ The class should implement these methods:
 The register_post_type() method should:
 
 1. Define comprehensive labels for the character post type
-2. Set up the post type with these key arguments:
-   - Public visibility
-   - Show in REST API for block editor support
-   - Custom rewrite rules with 'character' slug
-   - **CRITICAL: Use 'rpg_character' as capability_type (not 'post')**
-   - **CRITICAL: Set map_meta_cap to true for proper capability mapping**
-   - Support for title, editor, author, thumbnail, and excerpt
-   - Proper menu placement under the plugin menu
+2. Set up the post type with these key requirements:
+   - Public visibility for frontend display
+   - Enable REST API support for block editor
+   - Custom rewrite rules for user-friendly URLs
+   - **CRITICAL: Standard WordPress capabilities for proper permission handling**
+   - **CRITICAL: Capability mapping for role-based access control**
+   - **CRITICAL: Consistent capability approach throughout all plugin components**
+   - Support for standard WordPress content features
+   - Proper admin menu integration
 
-The capability_type and map_meta_cap settings are especially important to prevent capability conflicts with other plugins like GamiPress.
+Standard WordPress capabilities are essential to prevent editing permission errors. Custom capabilities should be avoided unless absolutely necessary and thoroughly tested.
 
 ### Registering Meta Fields
 
@@ -66,23 +67,14 @@ The register_meta() method should register several meta fields for characters:
 
 **CRITICAL: All meta fields must use proper auth_callbacks that check for specific post type and capability**
 
-Incorrect auth callback (causes permission issues):
-```
-'auth_callback' => function() {
-    return current_user_can('edit_posts');
-}
-```
+**Authentication and Authorization Requirements:**
 
-Correct auth callback (checks post type and specific capability):
-```
-'auth_callback' => function($allowed, $meta_key, $post_id, $user_id) {
-    $post = get_post($post_id);
-    if ($post && $post->post_type === 'rpg_character') {
-        return user_can($user_id, 'edit_rpg_character', $post_id);
-    }
-    return $allowed;
-}
-```
+* Verify post type before applying capability checks
+* Use standard WordPress capabilities for permission validation
+* Maintain consistent capability approach across all plugin components
+* Consider user roles and permissions in authorization logic
+* Validate context appropriately for each meta field operation
+* Avoid custom capability names in favor of standard WordPress capabilities
 
 This correction prevents permission issues when editing character meta data.
 

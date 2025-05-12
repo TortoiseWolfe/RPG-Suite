@@ -42,45 +42,21 @@ This document outlines the step-by-step implementation plan for the RPG-Suite Wo
 - Register activation and deactivation hooks
 - Add admin styles for text visibility
 
-```php
-// rpg-suite.php
-/*
-Plugin Name: RPG-Suite
-Description: A steampunk roleplaying game system with d7 dice
-Version: 1.0.0
-Author: Two Tubes
-*/
+#### Main Plugin File Requirements:
 
-// Register post type on init
-function rpg_suite_register_post_types() {
-    register_post_type('rpg_character', [
-        'labels' => [
-            'name' => 'Characters',
-            'singular_name' => 'Character',
-            // Other labels...
-        ],
-        'public' => true,
-        'show_ui' => true,
-        'show_in_menu' => true,
-        'show_in_rest' => true,  // Enable block editor support
-        'supports' => ['title', 'editor', 'thumbnail', 'revisions'],
-        'has_archive' => false,
-        'capability_type' => 'post',  // Standard post capabilities
-        'map_meta_cap' => true,
-    ]);
-}
-add_action('init', 'rpg_suite_register_post_types');
+* Create primary plugin file with proper WordPress headers
+* Register character post type with appropriate settings
+* Ensure proper visibility in WordPress admin interface
+* Set up appropriate hooks for initialization
+* Establish proper user capabilities for editing
 
-// Add admin styles for text visibility
-function rpg_suite_admin_styles() {
-    echo '<style>
-        .editor-styles-wrapper {
-            color: #333 !important;
-        }
-    </style>';
-}
-add_action('admin_head', 'rpg_suite_admin_styles');
-```
+#### Character Post Type Requirements:
+
+* Public visibility for frontend display
+* REST API support for block editor compatibility
+* Standard post capabilities for reliable permissions
+* Support for essential post features (title, editor, etc.)
+* Proper rewrite rules for permalinks
 
 #### 1.2 Meta Fields
 - Register meta fields for character attributes
@@ -116,32 +92,14 @@ add_action('admin_head', 'rpg_suite_admin_styles');
 - Create character display in profile header
 - Style character information for BuddyX theme
 
-```php
-function rpg_suite_display_character() {
-    if (!function_exists('bp_is_user') || !bp_is_user()) {
-        return;
-    }
+#### BuddyPress Integration Requirements:
 
-    $user_id = bp_displayed_user_id();
-    $character = rpg_suite_get_active_character($user_id);
-
-    if (!$character) {
-        return;
-    }
-
-    // Display character information
-    ?>
-    <div class="rpg-suite-character">
-        <h3><?php echo esc_html($character->post_title); ?></h3>
-        <div class="rpg-suite-character-class">
-            <?php echo esc_html(get_post_meta($character->ID, '_rpg_class', true)); ?>
-        </div>
-        <!-- Display attributes -->
-    </div>
-    <?php
-}
-add_action('bp_before_member_header_meta', 'rpg_suite_display_character');
-```
+* Hook into appropriate BuddyPress display locations
+* Retrieve active character for displayed user
+* Display character name, class, and attributes
+* Style character information for visual clarity
+* Ensure security through proper data escaping
+* Only show character data on appropriate profile pages
 
 #### 3.2 Character Switching
 - Create interface for listing characters
@@ -202,19 +160,24 @@ Testing will focus on specific functionality in appropriate environments:
 ## Core Implementation Principles
 
 1. **Simplicity First**: Start with the simplest implementation that works
-2. **Standard Capabilities**: Use standard post capabilities for reliability
-3. **Incremental Complexity**: Only add architectural patterns after basics work
-4. **Browser Testing**: Test all features in a browser environment
-5. **Visual Verification**: Ensure all UI elements are properly visible
-6. **Standard WordPress Patterns**: Follow WordPress conventions for reliability
+2. **STANDARD CAPABILITIES ONLY**: Always use standard post capabilities for custom post types to prevent editing errors
+3. **CONSISTENT CAPABILITY CHECKS**: Always use 'edit_post' for capability checks, never custom capabilities like 'edit_rpg_character'
+4. **Incremental Complexity**: Only add architectural patterns after basics work
+5. **Browser Testing**: Test all features in a browser environment
+6. **Visual Verification**: Ensure all UI elements are properly visible
+7. **Standard WordPress Patterns**: Follow WordPress conventions for reliability
+8. **EXPLICIT CAPABILITY MAPPING**: Always set 'map_meta_cap' to true and explicitly define capabilities array
 
 ## Critical Implementation Lessons
 
-1. **Post Type Registration**: Use standard post capabilities for initial development
-2. **Admin Styling**: Ensure text is visible in the editor
-3. **Testing Environment**: Always test in a browser, not CLI
-4. **Incremental Approach**: Get basic functionality working before adding complexity
-5. **Proper Hook Timing**: Register hooks at the appropriate time in the WordPress lifecycle
+1. **Post Type Registration**: ALWAYS use standard post capabilities ('post') for custom post types
+2. **Prevent "Item Doesn't Exist" Errors**: Explicitly define capabilities array with standard WordPress capabilities
+3. **Consistent Capability Checks**: Always use 'edit_post', never custom capabilities like 'edit_rpg_character'
+4. **Auth Callbacks**: Use standard edit_post capability in all meta field auth callbacks
+5. **Admin Styling**: Ensure text is visible in the editor
+6. **Testing Environment**: Always test in a browser, not CLI
+7. **Incremental Approach**: Get basic functionality working before adding complexity
+8. **Proper Hook Timing**: Register hooks at the appropriate time in the WordPress lifecycle
 
 ## Next Steps
 

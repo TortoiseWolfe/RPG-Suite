@@ -20,19 +20,15 @@ This document summarizes the key lessons learned during the RPG-Suite plugin dev
 
 ### 2. Custom Post Type Registration
 
-**Problem**: Character post type registration with custom capabilities prevented proper editing in WordPress admin.
+**Problem**: Character post type registration with custom capabilities prevented proper editing in WordPress admin, resulting in "You attempted to edit an item that doesn't exist" errors.
 
-**Lesson**: For initial development, standard post capabilities are more reliable than custom capability types.
+**Lesson**: ALWAYS use standard post capabilities for custom post types. Custom capabilities lead to permissions issues that are difficult to troubleshoot.
 
-**Solution**:
-```php
-register_post_type('rpg_character', [
-    // ...
-    'capability_type' => 'post',  // Standard post capabilities for simplicity
-    'map_meta_cap' => true,       // Enable capability mapping
-    'show_in_rest' => true,       // Enable block editor support
-]);
-```
+**Solution Considerations**:
+- Use standard WordPress post capabilities
+- Enable capability mapping for permissions
+- Ensure REST API support
+- Explicitly define capabilities to avoid conflicts
 
 ### 3. Testing Environment
 
@@ -51,34 +47,22 @@ register_post_type('rpg_character', [
 
 **Lesson**: WordPress admin styling can affect editor visibility.
 
-**Solution**:
-```php
-// Add admin styles to ensure text visibility
-function add_admin_styles() {
-    echo '<style>
-        .editor-styles-wrapper {
-            color: #333 !important;
-        }
-    </style>';
-}
-add_action('admin_head', 'add_admin_styles');
-```
+**Solution Considerations**:
+- Add inline styles to editor components
+- Ensure proper color contrast for text
+- Target appropriate CSS selectors for WordPress editor
 
 ### 5. Meta Field Registration
 
-**Problem**: Meta field authorization callbacks used incorrect capabilities.
+**Problem**: Meta field authorization callbacks using custom capabilities like 'edit_rpg_character' cause permission issues and prevent proper editing.
 
-**Lesson**: Use standard post capabilities for meta field authorization.
+**Lesson**: ALWAYS use standard WordPress capabilities like 'edit_post' for ALL capability checks throughout the plugin.
 
-**Solution**:
-```php
-register_post_meta('rpg_character', '_rpg_attributes', [
-    // ...
-    'auth_callback' => function($allowed, $meta_key, $post_id) {
-        return current_user_can('edit_post', $post_id);
-    }
-]);
-```
+**Solution Considerations**:
+- Use standard WordPress capability checks
+- Verify post type before applying capability checks
+- Maintain consistent capability approach throughout the plugin
+- Avoid custom capability names in favor of standard WordPress capabilities
 
 ## Architectural Lessons
 
@@ -99,21 +83,11 @@ register_post_meta('rpg_character', '_rpg_attributes', [
 
 **Lesson**: Make core components easily accessible.
 
-**Solution**:
-```php
-class RPG_Suite {
-    // Public properties for easy access
-    public $character_manager;
-
-    // Initialize plugin
-    public function __construct() {
-        // Simple initialization
-    }
-}
-
-// Make instance globally available
-$GLOBALS['rpg_suite'] = new RPG_Suite();
-```
+**Solution Considerations**:
+- Make components accessible through public properties
+- Use clear naming conventions for components
+- Provide global access to the main plugin instance
+- Design for service discovery within plugin architecture
 
 ### 3. Proper Hook Timing
 
@@ -121,14 +95,11 @@ $GLOBALS['rpg_suite'] = new RPG_Suite();
 
 **Lesson**: Use correct hook timing, especially for integrations.
 
-**Solution**:
-```php
-// Register post type on init
-add_action('init', 'register_character_post_type');
-
-// Initialize BuddyPress integration after BuddyPress is loaded
-add_action('bp_init', 'initialize_buddypress_integration', 20);
-```
+**Solution Considerations**:
+- Register post types during the init hook
+- Initialize BuddyPress integration after BuddyPress is fully loaded
+- Use appropriate hook priorities for correct execution order
+- Consider plugin dependencies when choosing hook timing
 
 ### 4. Simplified Styling
 
