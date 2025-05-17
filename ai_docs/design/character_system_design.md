@@ -4,20 +4,30 @@
 **Repository:** https://github.com/TortoiseWolfe/RPG-Suite
 
 ## Overview
-The character management system is a core component of RPG-Suite that handles creation, storage, retrieval, and management of player characters using a unique d7-based system designed specifically for a steampunk world.
+The character management system is the core component of RPG-Suite that provides dynamic, real-time character display and management through a React-based frontend while maintaining WordPress backend integration. The system features a unique d7-based dice system designed specifically for a steampunk world.
+
+## Architecture Overview
+
+The character system uses a hybrid architecture:
+- **Backend**: WordPress custom post types and REST API for data storage
+- **Frontend**: React-based character sheets for dynamic, responsive UI
+- **Caching**: Multi-layer caching for optimal performance
+- **Real-time**: WebSocket support for live updates (future phase)
 
 ## Implementation Approach
 
-Based on lessons learned, we're implementing the character system with these priorities:
+Based on lessons learned, the implementation follows these priorities:
 
-1. First, establish a working custom post type with proper editing
-2. Then implement basic character metadata
-3. Finally add the more advanced features like the d7 system and character classes
+1. Fix the character post type capability issues
+2. Implement core REST API endpoints
+3. Build React-based character sheet components
+4. Add real-time update capabilities
+5. Integrate with BuddyPress profiles
 
 ## Data Model
 
 ### Character Post Type
-Characters are stored as a custom post type with the following structure:
+Characters are stored as a custom post type with enhanced capability mapping:
 
 | Field | Description |
 |-------|-------------|
@@ -27,35 +37,198 @@ Characters are stored as a custom post type with the following structure:
 | post_author | WordPress user ID (character owner) |
 | post_status | Publication status (publish, draft, etc.) |
 
-### Character Meta
-Core character data stored in post meta:
+### Character Meta with React Support
+Core character data stored in post meta with REST API visibility:
 
 | Meta Key | Type | Description |
 |----------|------|-------------|
 | _rpg_active | boolean | Whether this character is the user's active character |
 | _rpg_attributes | array | Basic attributes for the d7 system |
 | _rpg_class | string | Character class (Aeronaut, Mechwright, etc.) |
+| _rpg_last_modified | string | ISO timestamp for cache invalidation |
+| _rpg_revision_id | string | Unique ID for conflict resolution |
+| _rpg_cache_version | int | Version for cache busting |
 
-## Post Type Registration
+## Post Type Registration (Fixed)
 
-The character post type is registered with standard post capabilities for simplicity and reliability:
+The character post type is registered with proper capability mapping:
 
 ```php
 register_post_type('rpg_character', [
     'labels' => [
         'name' => __('Characters', 'rpg-suite'),
         'singular_name' => __('Character', 'rpg-suite'),
-        // Other labels...
+        'add_new' => __('Add New Character', 'rpg-suite'),
+        'add_new_item' => __('Add New Character', 'rpg-suite'),
+        'edit_item' => __('Edit Character', 'rpg-suite'),
+        'new_item' => __('New Character', 'rpg-suite'),
+        'view_item' => __('View Character', 'rpg-suite'),
+        'search_items' => __('Search Characters', 'rpg-suite'),
+        'not_found' => __('No characters found', 'rpg-suite'),
+        'not_found_in_trash' => __('No characters found in trash', 'rpg-suite'),
     ],
     'public' => true,
     'show_ui' => true,
     'show_in_menu' => true,
-    'show_in_rest' => true,  // Block editor support
+    'show_in_rest' => true,  // Enable REST API support
+    'rest_base' => 'characters',
+    'rest_controller_class' => 'RPG_Suite_Character_REST_Controller',
     'supports' => ['title', 'editor', 'thumbnail', 'revisions'],
     'has_archive' => false,
-    'capability_type' => 'post',  // Standard post capabilities
+    'capability_type' => 'rpg_character',
     'map_meta_cap' => true,
+    'capabilities' => [
+        'publish_posts' => 'publish_rpg_characters',
+        'edit_posts' => 'edit_rpg_characters',
+        'edit_others_posts' => 'edit_others_rpg_characters',
+        'delete_posts' => 'delete_rpg_characters',
+        'delete_others_posts' => 'delete_others_rpg_characters',
+        'read_private_posts' => 'read_private_rpg_characters',
+        'edit_post' => 'edit_rpg_character',
+        'delete_post' => 'delete_rpg_character',
+        'read_post' => 'read_rpg_character',
+    ],
 ]);
+```
+
+## REST API Design
+
+### Character Endpoints
+
+```php
+// Get character data
+GET /wp-json/rpg-suite/v1/characters/{id}
+
+// Update character field
+PATCH /wp-json/rpg-suite/v1/characters/{id}
+
+// Switch active character
+POST /wp-json/rpg-suite/v1/characters/switch
+
+// Get user's characters
+GET /wp-json/rpg-suite/v1/users/{id}/characters
+
+// Create new character
+POST /wp-json/rpg-suite/v1/characters
+```
+
+### API Response Format
+
+```json
+{
+    "id": 123,
+    "name": "Character Name",
+    "class": "Aeronaut",
+    "attributes": {
+        "fortitude": "3d7+1",
+        "precision": "2d7",
+        "intellect": "4d7",
+        "charisma": "2d7+2"
+    },
+    "active": true,
+    "meta": {
+        "revision_id": "uuid-here",
+        "last_modified": "2025-05-17T12:00:00Z",
+        "cache_version": 2
+    },
+    "owner": {
+        "id": 1,
+        "name": "Player Name",
+        "avatar_url": "https://..."
+    }
+}
+```
+
+## React Character Sheet
+
+### Component Architecture
+
+```javascript
+// Main character sheet component
+const CharacterSheet = ({ characterId }) => {
+    const { character, loading, error, updateCharacter } = useCharacter(characterId);
+    const { isEditing, setIsEditing } = useState(false);
+    
+    if (loading) return <LoadingSpinner />;
+    if (error) return <ErrorMessage error={error} />;
+    
+    return (
+        <div className="rpg-character-sheet">
+            <CharacterHeader character={character} onEdit={() => setIsEditing(true)} />
+            <CharacterStats 
+                attributes={character.attributes}
+                isEditing={isEditing}
+                onUpdate={updateCharacter}
+            />
+            <CharacterClass 
+                class={character.class}
+                isEditing={isEditing}
+                onUpdate={updateCharacter}
+            />
+            <CharacterInventory items={character.inventory} />
+            <CharacterActions 
+                character={character}
+                onSwitch={() => handleCharacterSwitch(character.id)}
+            />
+        </div>
+    );
+};
+```
+
+### Custom Hooks
+
+```javascript
+// Hook for character data management
+const useCharacter = (characterId) => {
+    const queryClient = useQueryClient();
+    
+    // Fetch character data
+    const { data, isLoading, error } = useQuery(
+        ['character', characterId],
+        () => api.getCharacter(characterId),
+        {
+            staleTime: 5 * 60 * 1000,
+            cacheTime: 10 * 60 * 1000,
+        }
+    );
+    
+    // Update character mutation
+    const updateMutation = useMutation(
+        (updates) => api.updateCharacter(characterId, updates),
+        {
+            onMutate: async (updates) => {
+                await queryClient.cancelQueries(['character', characterId]);
+                const previous = queryClient.getQueryData(['character', characterId]);
+                
+                // Optimistic update
+                queryClient.setQueryData(['character', characterId], (old) => ({
+                    ...old,
+                    ...updates,
+                    meta: {
+                        ...old.meta,
+                        revision_id: generateUUID(),
+                        last_modified: new Date().toISOString(),
+                    }
+                }));
+                
+                return { previous };
+            },
+            onError: (err, updates, context) => {
+                queryClient.setQueryData(['character', characterId], context.previous);
+            },
+            onSettled: () => {
+                queryClient.invalidateQueries(['character', characterId]);
+            }
+        }
+    );
+    
+    return {
+        character: data,
+        loading: isLoading,
+        error,
+        updateCharacter: updateMutation.mutate,
+    };
+};
 ```
 
 ## Steampunk d7 System
@@ -79,152 +252,341 @@ Four steampunk character classes:
 3. **Aethermancer**: Scientists who manipulate aether energy
 4. **Diplomat**: Negotiators who navigate politics
 
-## Core Functionality
+### Die Roll Visualization
 
-### Character Manager
-Simplified API for character operations:
-
-```php
-// Core operations
-create_character($user_id, $data)
-get_character($character_id)
-get_user_characters($user_id)
-get_active_character($user_id)
-set_active_character($user_id, $character_id)
-update_character($character_id, $data)
-delete_character($character_id)
+```javascript
+// React component for die rolls
+const DieRollVisualizer = ({ dieCode, onRoll }) => {
+    const [rolling, setRolling] = useState(false);
+    const [result, setResult] = useState(null);
+    
+    const handleRoll = async () => {
+        setRolling(true);
+        const rollResult = await api.rollDice(dieCode);
+        
+        // Animate dice
+        setTimeout(() => {
+            setResult(rollResult);
+            setRolling(false);
+        }, 1000);
+    };
+    
+    return (
+        <div className="die-roll-visualizer">
+            <button onClick={handleRoll} disabled={rolling}>
+                Roll {dieCode}
+            </button>
+            {rolling && <DiceAnimation />}
+            {result && !rolling && (
+                <div className="roll-result">
+                    <span className="total">{result.total}</span>
+                    <span className="breakdown">{result.breakdown}</span>
+                </div>
+            )}
+        </div>
+    );
+};
 ```
 
-### Meta Field Registration
+## Caching Strategy
 
-Register meta fields with proper authorization:
-
-```php
-register_post_meta('rpg_character', '_rpg_active', [
-    'type' => 'boolean',
-    'single' => true,
-    'default' => false,
-    'show_in_rest' => true,
-    'auth_callback' => function($allowed, $meta_key, $post_id) {
-        return current_user_can('edit_post', $post_id);
-    }
-]);
-
-register_post_meta('rpg_character', '_rpg_class', [
-    'type' => 'string',
-    'single' => true,
-    'default' => '',
-    'show_in_rest' => true,
-    'auth_callback' => function($allowed, $meta_key, $post_id) {
-        return current_user_can('edit_post', $post_id);
-    }
-]);
-
-register_post_meta('rpg_character', '_rpg_attributes', [
-    'type' => 'object',
-    'single' => true,
-    'default' => [
-        'fortitude' => '2d7',
-        'precision' => '2d7',
-        'intellect' => '2d7',
-        'charisma' => '2d7'
-    ],
-    'show_in_rest' => [
-        'schema' => [
-            'type' => 'object',
-            'properties' => [
-                'fortitude' => ['type' => 'string'],
-                'precision' => ['type' => 'string'],
-                'intellect' => ['type' => 'string'],
-                'charisma' => ['type' => 'string']
-            ]
-        ]
-    ],
-    'auth_callback' => function($allowed, $meta_key, $post_id) {
-        return current_user_can('edit_post', $post_id);
-    }
-]);
-```
-
-### Meta Box Registration
-
-Register meta boxes for character editing:
+### Multi-Layer Cache Implementation
 
 ```php
-add_meta_box(
-    'rpg_character_class',
-    __('Character Class', 'rpg-suite'),
-    [$this, 'render_class_meta_box'],
-    'rpg_character',
-    'side',
-    'high'
-);
-
-add_meta_box(
-    'rpg_character_attributes',
-    __('Character Attributes', 'rpg-suite'),
-    [$this, 'render_attributes_meta_box'],
-    'rpg_character',
-    'normal',
-    'high'
-);
+class RPG_Character_Cache {
+    private $cache_group = 'rpg_characters';
+    
+    public function get_character($character_id) {
+        // Level 1: Object cache
+        $character = wp_cache_get($character_id, $this->cache_group);
+        
+        if (false === $character) {
+            // Level 2: Transient cache
+            $character = get_transient('rpg_character_' . $character_id);
+            
+            if (false === $character) {
+                // Level 3: Database query
+                $character = $this->fetch_from_database($character_id);
+                
+                if ($character) {
+                    // Store in both caches
+                    $this->set_character_cache($character_id, $character);
+                }
+            }
+        }
+        
+        return $character;
+    }
+    
+    public function set_character_cache($character_id, $character_data) {
+        // Add cache metadata
+        $character_data['cache_time'] = time();
+        $character_data['cache_version'] = get_option('rpg_suite_cache_version', 1);
+        
+        // Store in object cache
+        wp_cache_set($character_id, $character_data, $this->cache_group, HOUR_IN_SECONDS);
+        
+        // Store in transient
+        set_transient('rpg_character_' . $character_id, $character_data, HOUR_IN_SECONDS);
+        
+        // Update cache index
+        $this->update_cache_index($character_id);
+    }
+    
+    public function invalidate_character($character_id) {
+        // Clear all cache layers
+        wp_cache_delete($character_id, $this->cache_group);
+        delete_transient('rpg_character_' . $character_id);
+        
+        // Increment revision
+        update_post_meta($character_id, '_rpg_revision_id', wp_generate_uuid4());
+        
+        // Notify React frontend
+        do_action('rpg_character_cache_invalidated', $character_id);
+    }
+}
 ```
-
-## User Flows
-
-### Character Creation
-1. User creates a new character post
-2. User sets character class and attributes
-3. System saves character metadata
-4. If it's the user's first character, it's automatically set as active
-
-### Character Activation
-1. User views their characters
-2. User selects a character to activate
-3. Previous active character is deactivated
-4. Selected character is marked as active
-
-### Character Management
-1. User views list of their characters
-2. User can edit, delete, or activate each character
-
-## Character Limit
-
-### Default Limit
-By default, users can have a maximum of 2 characters.
-
-### Implementation
-When creating a character, check the current count for the user against their limit (default is 2). If they've reached their limit, prevent creation and show an appropriate error message.
 
 ## BuddyPress Integration
 
-The character management system integrates with BuddyPress by:
+### React Component in BuddyPress Profile
 
-1. Displaying the active character on user profiles
-2. Providing a character switching interface
-3. Using BuddyPress hooks to render character information
+```php
+// Add React mount point to BuddyPress profile
+add_action('bp_before_member_body', function() {
+    if (!bp_is_user()) return;
+    
+    $user_id = bp_displayed_user_id();
+    $character = rpg_get_active_character($user_id);
+    
+    if ($character) {
+        echo '<div id="rpg-character-sheet-mount" 
+                   data-character-id="' . esc_attr($character->ID) . '"
+                   data-user-id="' . esc_attr($user_id) . '"
+                   data-can-edit="' . esc_attr(current_user_can('edit_rpg_character', $character->ID) ? 'true' : 'false') . '">
+              </div>';
+        
+        // Enqueue React app
+        wp_enqueue_script('rpg-suite-character-sheet');
+        wp_enqueue_style('rpg-suite-character-sheet');
+        
+        // Pass data to React
+        wp_localize_script('rpg-suite-character-sheet', 'rpgSuiteData', [
+            'api' => [
+                'root' => rest_url('rpg-suite/v1/'),
+                'nonce' => wp_create_nonce('wp_rest'),
+            ],
+            'character' => [
+                'id' => $character->ID,
+                'canEdit' => current_user_can('edit_rpg_character', $character->ID),
+            ],
+            'user' => [
+                'id' => get_current_user_id(),
+                'isOwner' => get_current_user_id() === $user_id,
+            ],
+        ]);
+    }
+}, 20);
+```
 
-The integration checks if the current page is a BuddyPress user profile, retrieves the active character for the displayed user, and renders the character information using appropriate templates and styles.
+### Character Switcher Widget
 
-## Implementation Phases
+```javascript
+const CharacterSwitcher = () => {
+    const { userId } = useContext(UserContext);
+    const { characters, activeCharacterId, switchCharacter } = useCharacters(userId);
+    const [switching, setSwitching] = useState(false);
+    
+    const handleSwitch = async (characterId) => {
+        setSwitching(true);
+        try {
+            await switchCharacter(characterId);
+            // Reload the page or update React state
+            window.location.reload();
+        } catch (error) {
+            console.error('Failed to switch character:', error);
+            alert('Failed to switch character. Please try again.');
+        } finally {
+            setSwitching(false);
+        }
+    };
+    
+    return (
+        <div className="rpg-character-switcher">
+            <h3>My Characters</h3>
+            <div className="character-list">
+                {characters.map(char => (
+                    <div 
+                        key={char.id}
+                        className={`character-item ${char.id === activeCharacterId ? 'active' : ''}`}
+                    >
+                        <img src={char.avatar} alt={char.name} />
+                        <div className="character-info">
+                            <h4>{char.name}</h4>
+                            <p>{char.class}</p>
+                        </div>
+                        {char.id !== activeCharacterId && (
+                            <button 
+                                onClick={() => handleSwitch(char.id)}
+                                disabled={switching}
+                            >
+                                Switch
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+```
 
-The character system will be implemented in these phases:
+## Performance Optimization
 
-1. **Phase 1: Basic Post Type**
-   - Register character post type with standard capabilities
-   - Ensure proper editing in WordPress admin
-   - Add basic meta fields
+### React Performance
 
-2. **Phase 2: Character Management**
-   - Implement active character tracking
-   - Add character limit enforcement
-   - Create character list views
+1. **Component Memoization**:
+```javascript
+const CharacterStats = React.memo(({ attributes, isEditing, onUpdate }) => {
+    // Component implementation
+}, (prevProps, nextProps) => {
+    return prevProps.attributes === nextProps.attributes && 
+           prevProps.isEditing === nextProps.isEditing;
+});
+```
 
-3. **Phase 3: BuddyPress Integration**
-   - Display active character on profiles
-   - Add character switching interface
+2. **Lazy Loading**:
+```javascript
+const CharacterInventory = React.lazy(() => import('./CharacterInventory'));
+const CharacterAchievements = React.lazy(() => import('./CharacterAchievements'));
+```
 
-4. **Phase 4: Advanced Features**
-   - Implement full d7 system
-   - Add character skills
-   - Add invention system
+3. **Debounced Updates**:
+```javascript
+const useDebouncedUpdate = (updateFn, delay = 500) => {
+    const debouncedUpdate = useMemo(
+        () => debounce(updateFn, delay),
+        [updateFn, delay]
+    );
+    
+    useEffect(() => {
+        return () => debouncedUpdate.cancel();
+    }, [debouncedUpdate]);
+    
+    return debouncedUpdate;
+};
+```
+
+### API Performance
+
+1. **Batch Updates**:
+```php
+register_rest_route('rpg-suite/v1', '/characters/(?P<id>\d+)/batch', [
+    'methods' => 'PATCH',
+    'callback' => 'rpg_batch_update_character',
+    'permission_callback' => 'rpg_can_edit_character',
+    'args' => [
+        'updates' => [
+            'type' => 'array',
+            'required' => true,
+            'items' => [
+                'type' => 'object',
+                'properties' => [
+                    'field' => ['type' => 'string'],
+                    'value' => ['type' => ['string', 'number', 'boolean', 'array']],
+                ],
+            ],
+        ],
+    ],
+]);
+```
+
+2. **Field Selection**:
+```php
+// API supports field selection
+GET /wp-json/rpg-suite/v1/characters/123?fields=id,name,class,attributes
+```
+
+## Testing Strategy
+
+### React Component Tests
+
+```javascript
+describe('CharacterSheet', () => {
+    it('displays character information', async () => {
+        const mockCharacter = {
+            id: 1,
+            name: 'Test Character',
+            class: 'Aeronaut',
+            attributes: {
+                fortitude: '3d7',
+                precision: '2d7+1',
+                intellect: '4d7',
+                charisma: '2d7',
+            },
+        };
+        
+        render(<CharacterSheet characterId={1} />);
+        
+        await waitFor(() => {
+            expect(screen.getByText('Test Character')).toBeInTheDocument();
+            expect(screen.getByText('Aeronaut')).toBeInTheDocument();
+        });
+    });
+    
+    it('handles character updates', async () => {
+        const user = userEvent.setup();
+        render(<CharacterSheet characterId={1} />);
+        
+        const editButton = await screen.findByText('Edit');
+        await user.click(editButton);
+        
+        const nameInput = screen.getByLabelText('Character Name');
+        await user.clear(nameInput);
+        await user.type(nameInput, 'Updated Name');
+        
+        const saveButton = screen.getByText('Save');
+        await user.click(saveButton);
+        
+        await waitFor(() => {
+            expect(screen.getByText('Updated Name')).toBeInTheDocument();
+        });
+    });
+});
+```
+
+### API Tests
+
+```php
+class Test_Character_REST_API extends WP_UnitTestCase {
+    public function test_update_character_field() {
+        $user_id = $this->factory->user->create();
+        $character_id = $this->create_test_character($user_id);
+        
+        wp_set_current_user($user_id);
+        
+        $request = new WP_REST_Request('PATCH', '/rpg-suite/v1/characters/' . $character_id);
+        $request->set_body_params([
+            'attributes' => [
+                'fortitude' => '4d7+1',
+            ],
+        ]);
+        
+        $response = rest_do_request($request);
+        $data = $response->get_data();
+        
+        $this->assertEquals(200, $response->get_status());
+        $this->assertEquals('4d7+1', $data['attributes']['fortitude']);
+        $this->assertNotEmpty($data['meta']['revision_id']);
+    }
+}
+```
+
+## Future Enhancements
+
+1. **WebSocket Support**: Real-time character updates across multiple sessions
+2. **Offline Mode**: Service worker for offline character viewing
+3. **Mobile App**: React Native companion app
+4. **Advanced Dice System**: Visual dice rolling with physics
+5. **Character Sheets PDF**: Export character sheets as PDFs
+6. **Campaign Integration**: Link characters to campaign sessions

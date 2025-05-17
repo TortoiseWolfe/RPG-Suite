@@ -1,7 +1,7 @@
-# Character Manager Specification
+# Character Manager Specification - React Revision
 
 ## Purpose
-The Character Manager provides a centralized API for all operations related to character creation, retrieval, updating, and deletion in our steampunk d7 system.
+The Character Manager provides a centralized API for all character operations in our steampunk d7 system, with enhanced support for React frontend and REST API endpoints.
 
 ## Requirements
 1. Support creating, retrieving, updating, and deleting characters
@@ -11,7 +11,9 @@ The Character Manager provides a centralized API for all operations related to c
 5. Support invention and gadget creation mechanics
 6. Trigger appropriate events for character state changes
 7. Provide clear error handling and validation
-8. Implement caching for performance optimization
+8. Implement multi-layer caching for performance optimization
+9. Support REST API operations for React frontend
+10. Handle real-time updates and cache invalidation
 
 ## Class Definition
 
@@ -21,9 +23,10 @@ The Character Manager class should:
 3. Have the following properties:
    - A private property for the event dispatcher instance (RPG_Suite_Event_Dispatcher)
    - A private property for the die code utility instance (RPG_Suite_Die_Code_Utility)
+   - A private property for the cache manager instance (RPG_Suite_Cache_Manager)
 4. Have a constructor that accepts and stores these dependencies
 
-## Core Methods
+## Core Methods (Enhanced for React)
 
 ### Creating a Character
 This method (`create_character`) should:
@@ -36,33 +39,40 @@ This method (`create_character`) should:
 - Store character metadata including attributes, skills, class, etc.
 - Initialize invention points and fate tokens with default values
 - Make the character active if it's the user's first character
+- Generate revision ID for React cache management
 - Dispatch a 'character_created' event with relevant data
+- Clear relevant caches
 - Return the character ID on success or WP_Error on failure
 
-### Retrieving a Character
+### Retrieving a Character (With Caching)
 This method (`get_character`) should:
-- Accept a character ID parameter
+- Accept a character ID parameter and optional format parameter
+- Check multi-layer cache (object cache → transient → database)
 - Return the character post object if it exists and is of the correct type
+- Format data for REST API response if requested
+- Include revision ID and cache metadata
 - Return null if the character doesn't exist or is of the wrong type
 
-### Getting User Characters
+### Getting User Characters (Optimized)
 This method (`get_user_characters`) should:
-- Implement caching for performance using 'rpg_user_characters_[user_id]' cache key
+- Implement multi-layer caching for performance
 - Check cache first and return cached results if available
 - Query all characters belonging to the specified user if not cached
 - Order results by title ascending
-- Cache the character IDs with a 12-hour expiration
-- Return an array of character post objects
+- Cache the results with appropriate expiration
+- Return an array of character post objects or formatted data
+- Support pagination for large character lists
 
-### Getting Active Character
+### Getting Active Character (Enhanced)
 This method (`get_active_character`) should:
-- Implement transient caching using 'rpg_active_character_[user_id]' key
+- Implement transient and object caching
 - Check cache first and validate the cached character still exists
 - Query for the user's character with the '_rpg_active' meta set to true
-- Cache the result with a 12-hour expiration
+- Cache the result with appropriate expiration
+- Include revision tracking for React
 - Return the active character post or null if none found
 
-### Setting Active Character
+### Setting Active Character (With Locking)
 This method (`set_active_character`) should:
 - Use a transient-based mutex for concurrency control
 - Return an error if another activation is in progress
@@ -70,50 +80,140 @@ This method (`set_active_character`) should:
 - Get the previous active character for event data
 - Deactivate all of the user's characters
 - Activate only the specified character
-- Clear relevant caches
+- Clear all relevant caches across layers
+- Update revision IDs
 - Dispatch a 'character_activated' event with relevant data
+- Send cache invalidation notifications to React
 - Release the mutex and handle any exceptions
 - Return true on success or WP_Error on failure
 
-### Validating Attributes
-This method (`validate_attributes`) should:
-- Check that attribute names are valid (fortitude, precision, intellect, charisma)
-- Validate die code format using the die code utility
-- Enforce minimum of 1 die and maximum of 10 dice per attribute
-- Return true on success or WP_Error with detailed message on failure
+### Batch Character Updates (New)
+This method (`batch_update_character`) should:
+- Accept character ID and array of updates
+- Validate each update field
+- Apply updates atomically
+- Update revision ID
+- Clear caches selectively
+- Dispatch appropriate events
+- Return updated character data
 
-### Validating Skills
-This method (`validate_skills`) should:
-- Verify each skill has required 'attribute' and 'value' properties
-- Check that referenced attributes exist
-- Validate die code format for skill values
-- Ensure skills don't exceed their base attribute by more than 2 dice
-- Return true on success or WP_Error with detailed message on failure
+### Real-time Update Notification (New)
+This method (`notify_character_update`) should:
+- Accept character ID and update type
+- Generate update event data
+- Dispatch to event system
+- Queue for WebSocket notification (future)
+- Update cache metadata
 
-### Cache Management
-This method (`clear_character_cache`) should:
-- Accept a character ID and optional user ID
-- Determine the user ID from the character if not provided
-- Clear active character cache using transient deletion
-- Clear user characters cache
+## REST API Support Methods
+
+### Format for API Response
+This method (`format_for_api`) should:
+- Accept character post object
+- Transform to standardized JSON structure
+- Include calculated fields
+- Add HATEOAS links
+- Return formatted array
+
+### Validate API Request
+This method (`validate_api_request`) should:
+- Check request method
+- Validate nonce
+- Verify user capabilities
+- Sanitize input data
+- Return validation result
+
+## Caching Strategy
+
+### Multi-Layer Cache Implementation
+This method (`get_from_cache`) should:
+- Check object cache first (fastest)
+- Fall back to transient cache
+- Query database as last resort
+- Update higher cache layers on miss
+- Track cache performance metrics
+
+### Cache Invalidation
+This method (`invalidate_character_cache`) should:
+- Accept character ID and invalidation scope
+- Clear object cache entries
+- Delete transient entries
+- Update revision IDs
+- Notify React of cache invalidation
+- Clear related caches (user characters, etc.)
+
+## Event System Integration
+
+### Dispatch Character Events
+Events should include:
+- character_created
+- character_updated
+- character_deleted
+- character_activated
+- character_deactivated
+- character_cache_invalidated
+
+Each event should include:
+- Character ID
+- User ID
+- Timestamp
+- Revision ID
+- Update type
+- Previous/new values
+
+## Performance Optimizations
+
+1. **Query Optimization**:
+   - Use selective field queries
+   - Implement query result caching
+   - Batch related queries
+
+2. **Cache Warming**:
+   - Pre-cache frequently accessed data
+   - Background cache refresh
+   - Predictive caching
+
+3. **API Response Optimization**:
+   - Field filtering support
+   - Response compression
+   - ETag support
+
+## Security Considerations
+
+1. **Capability Checks**:
+   - Verify user can edit character
+   - Check character ownership
+   - Validate admin operations
+
+2. **Input Validation**:
+   - Sanitize all inputs
+   - Validate data types
+   - Check value ranges
+
+3. **Rate Limiting**:
+   - Implement per-user limits
+   - Track API usage
+   - Prevent abuse
 
 ## Usage Context
 
-The Character Manager should be accessible through the global plugin instance:
-- Global access via $rpg_suite->get_character_manager()
-- Used for all character-related operations throughout the plugin
-- Event dispatching allows other components to hook into character actions
+The Character Manager should be accessible through:
+- Global plugin instance: $rpg_suite->get_character_manager()
+- REST API endpoints for React frontend
+- WordPress admin interface
+- BuddyPress integration hooks
 
 ## Implementation Notes
 
 1. All methods must include proper error handling with descriptive error messages
 2. Character validation ensures data integrity for the d7 system
-3. Caching is implemented for frequently accessed data
+3. Multi-layer caching provides optimal performance
 4. Concurrency control prevents race conditions during character activation
-5. Events are dispatched for major actions to allow integration with other components
+5. Events are dispatched for major actions to allow integration
 6. All user inputs must be properly sanitized before storage
-7. Die code formatting and validation is delegated to the Die Code Utility
-8. Character limit enforcement ensures users stay within their allowed limits
-9. Proper security checks must be implemented for all operations
-10. Meta data keys should use consistent naming conventions (_rpg_attribute, _rpg_skills, etc.)
-11. The maximum number of characters should be filterable but default to 2
+7. REST API responses follow JSON:API specification
+8. Revision tracking enables optimistic updates in React
+9. Cache invalidation is granular and efficient
+10. Performance metrics are tracked for optimization
+11. Security checks are performed at every layer
+12. The maximum number of characters should be filterable but default to 2

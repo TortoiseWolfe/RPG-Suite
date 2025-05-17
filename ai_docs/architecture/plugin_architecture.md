@@ -5,7 +5,7 @@
 
 ## High-Level Architecture
 
-RPG-Suite follows a modular architecture with clear separation of concerns. The architectural structure has been simplified based on lessons learned, focusing first on core functionality before adding complexity.
+RPG-Suite follows a hybrid architecture combining traditional WordPress PHP backend with modern React-based frontend for character sheets. This approach provides optimal performance for dynamic character data while maintaining full BuddyPress/BuddyX compatibility.
 
 ### Directory Structure
 
@@ -13,41 +13,72 @@ RPG-Suite follows a modular architecture with clear separation of concerns. The 
 RPG-Suite/
 ├── rpg-suite.php              # Plugin main file
 ├── uninstall.php              # Clean uninstallation procedures
-├── includes/                  # Core plugin functionality
-│   ├── class-autoloader.php   # PSR-4 autoloader
-│   ├── class-rpg-suite.php    # Main plugin class
-│   ├── class-activator.php    # Plugin activation logic
-│   ├── class-deactivator.php  # Plugin deactivation logic
-│   ├── core/                  # Core functionality
+├── includes/                  # Core PHP functionality
+│   ├── core/                  # Core classes
+│   │   ├── class-autoloader.php
+│   │   ├── class-rpg-suite.php
+│   │   ├── class-activator.php
+│   │   └── class-deactivator.php
+│   ├── api/                   # REST API endpoints
+│   │   ├── class-character-api.php
+│   │   └── class-cache-api.php
 │   ├── character/             # Character management
-│   ├── admin/                 # Admin functionality
-│   ├── integrations/          # Third-party integrations
-│   └── assets/                # Frontend assets
+│   │   ├── class-character-manager.php
+│   │   └── class-character-meta-handler.php
+│   ├── cache/                 # Caching layer
+│   │   └── class-cache-manager.php
+│   └── integrations/          # Third-party integrations
+│       └── buddypress/
+│           └── class-buddypress-integration.php
+├── react-app/                 # React frontend
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── store/           # State management
+│   │   └── api/             # API client
+│   ├── build/               # Compiled assets
+│   └── package.json
+├── assets/                   # Legacy assets
+│   ├── css/
+│   └── js/
+├── docker/                   # Docker configurations
+│   └── react-builder/
+└── languages/               # Internationalization
 ```
 
 ## Development Approach
 
-The architecture is designed to be implemented in phases, with a focus on getting the core functionality working first before adding more complex features:
+The architecture combines WordPress best practices with modern frontend development:
 
-1. **Phase 1: Core Plugin Structure**
-   - Main plugin class
-   - Autoloader
-   - Post type registration
+1. **Phase 1: Core Plugin Structure & Fixes**
+   - Fix character post type capabilities
+   - Implement missing core classes
    - Basic admin interface
+   - Multi-layer caching foundation
 
-2. **Phase 2: Character System**
-   - Character management
-   - Character post editing
-   - Character metadata handling
+2. **Phase 2: REST API & Caching**
+   - RESTful endpoints for character data
+   - Authentication and permissions
+   - Cache management API
+   - Response optimization
 
-3. **Phase 3: BuddyPress Integration**
-   - Profile display
-   - Character switching
+3. **Phase 3: React Character Sheet**
+   - Component architecture
+   - State management setup
+   - Real-time updates
+   - Performance optimization
 
-4. **Phase 4: Advanced Features**
-   - Event system
-   - Die code utility
-   - Template system
+4. **Phase 4: BuddyPress Integration**
+   - React components in BuddyPress
+   - Character switching UI
+   - Profile enhancements
+   - BuddyX theme compatibility
+
+5. **Phase 5: Advanced Features**
+   - Event system with WebSocket support
+   - Die code utility with visual rolls
+   - Invention system UI
+   - Advanced caching strategies
 
 ## Component Responsibilities
 
@@ -100,11 +131,13 @@ register_post_type('rpg_character', [
 
 ## Global Accessibility
 
-Components are designed to be accessible throughout the plugin:
+The plugin provides multiple access patterns:
 
-- Public properties on main plugin class
-- Global `$rpg_suite` variable
-- Consistent initialization order
+- PHP: Global `$rpg_suite` variable for backend access
+- React: Context providers for frontend state
+- REST API: Standardized endpoints for data access
+- Events: Custom event system for cross-component communication
+- Cache: Unified caching layer for all data types
 
 ## Implementation Priorities
 
@@ -122,17 +155,40 @@ Components are designed to be accessible throughout the plugin:
    - Show active character on profile
    - Enable character switching
 
-## CSS Implementation
+## Frontend Implementation
 
-- Admin styles ensure proper text visibility in editor
-- BuddyPress styles use appropriate specificity
-- Avoid excessive !important declarations
+### React Components
+- Modular component architecture
+- Lazy loading for performance
+- Error boundaries for stability
+- Memoization for optimization
+
+### Styling Strategy
+- CSS Modules for component isolation
+- Styled-components for dynamic styles
+- BuddyX theme compatibility
+- Responsive design principles
+- Dark mode support
 
 ## Testing Strategy
 
-- Test post type functionality first in browser environment
-- Verify actual user experience
-- Ensure compatibility with Yoast SEO and other common plugins
+### Backend Testing
+- PHPUnit for WordPress integration tests
+- REST API endpoint testing
+- Cache layer verification
+- Performance benchmarking
+
+### Frontend Testing
+- Jest for React component tests
+- React Testing Library for user interactions
+- Cypress for E2E testing
+- Performance profiling
+
+### Integration Testing
+- BuddyPress compatibility
+- Character switching flows
+- Real-time update verification
+- Cross-browser testing
 
 ## Coding Standards
 
