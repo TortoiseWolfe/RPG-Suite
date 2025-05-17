@@ -1,0 +1,74 @@
+/**
+ * RPG-Suite Styles
+ */
+
+.rpg-character-display {
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.rpg-character-display h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.rpg-attributes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.rpg-attributes p {
+    margin: 5px 0;
+}
+
+.rpg-attributes strong {
+    color: #666;
+}
+
+/* Character switcher styles */
+.rpg-character-switcher {
+    margin: 20px 0;
+}
+
+.rpg-character-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.rpg-character-list li {
+    padding: 10px;
+    margin: 5px 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.rpg-character-list li:hover {
+    background: #f0f0f0;
+}
+
+.rpg-character-list li.active {
+    background: #e7f3ff;
+    border-color: #0073aa;
+}
+
+/* Admin styles */
+.rpg-admin-attributes {
+    margin-top: 15px;
+}
+
+.rpg-admin-attributes h4 {
+    margin-bottom: 10px;
+}
+
+.rpg-admin-attributes .small-text {
+    width: 50px;
+}

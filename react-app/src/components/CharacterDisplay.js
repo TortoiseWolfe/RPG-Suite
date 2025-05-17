@@ -1,0 +1,61 @@
+import { useState, useEffect } from '@wordpress/element';
+import apiFetch from '@wordpress/api-fetch';
+
+function CharacterDisplay() {
+  const [characters, setCharacters] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Get user ID from window or data attribute
+  const userId = window.rpgSuiteData?.currentUser || 
+                 document.getElementById('rpg-suite-character')?.dataset.userId;
+  
+  useEffect(() => {
+    // Show React container and hide PHP fallback
+    const container = document.getElementById('rpg-suite-character');
+    const phpFallback = document.querySelector('.rpg-php-fallback');
+    
+    if (container) container.style.display = 'block';
+    if (phpFallback) phpFallback.style.display = 'none';
+    
+    if (!userId) return;
+    
+    setIsLoading(true);
+    apiFetch({ path: `/rpg-suite/v1/users/${userId}/characters` })
+      .then(data => {
+        setCharacters(data);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        setError(err);
+        setIsLoading(false);
+      });
+  }, [userId]);
+  
+  if (isLoading) return <div>Loading character...</div>;
+  if (error) return <div>Error loading character: {error.message}</div>;
+  
+  // Find active character
+  const activeCharacter = characters?.find(char => char.active);
+  
+  if (!activeCharacter) {
+    return <div>No active character</div>;
+  }
+  
+  return (
+    <div className="rpg-character-display">
+      <h3>{activeCharacter.title}</h3>
+      {activeCharacter.class && (
+        <p><strong>Class:</strong> {activeCharacter.class}</p>
+      )}
+      <div className="rpg-attributes">
+        <p><strong>Fortitude:</strong> {activeCharacter.attributes.fortitude}</p>
+        <p><strong>Precision:</strong> {activeCharacter.attributes.precision}</p>
+        <p><strong>Intellect:</strong> {activeCharacter.attributes.intellect}</p>
+        <p><strong>Charisma:</strong> {activeCharacter.attributes.charisma}</p>
+      </div>
+    </div>
+  );
+}
+
+export default CharacterDisplay;

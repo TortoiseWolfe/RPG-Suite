@@ -44,5 +44,8 @@ Thumbs.db
 # Build files
 dist/
 build/
+react-app/build/
 *.zip
+*.min.js
+*.min.css
 **/.claude/settings.local.json
