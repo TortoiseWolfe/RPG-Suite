@@ -60,6 +60,9 @@ function CharacterSwitcher() {
           >
             <strong>{character.title}</strong>
             {character.class && <span> - {character.class}</span>}
+            {character.health && (
+              <span> - {character.health.current}/{character.health.max} HP ({character.health.status})</span>
+            )}
             {character.active && <span> (Active)</span>}
           </li>
         ))}

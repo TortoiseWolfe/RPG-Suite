@@ -54,6 +54,28 @@ function CharacterDisplay() {
         <p><strong>Intellect:</strong> {activeCharacter.attributes.intellect}</p>
         <p><strong>Charisma:</strong> {activeCharacter.attributes.charisma}</p>
       </div>
+      {activeCharacter.health && (
+        <div className="rpg-health">
+          <p><strong>Health:</strong> {activeCharacter.health.current}/{activeCharacter.health.max} ({activeCharacter.health.percentage}%)</p>
+          <p><strong>Status:</strong> {activeCharacter.health.status}</p>
+          <div className="rpg-health-bar" style={{
+            width: '100%',
+            height: '20px',
+            backgroundColor: '#ccc',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            marginTop: '5px'
+          }}>
+            <div style={{
+              width: `${activeCharacter.health.percentage}%`,
+              height: '100%',
+              backgroundColor: activeCharacter.health.percentage > 50 ? '#4caf50' : 
+                              activeCharacter.health.percentage > 25 ? '#ffeb3b' : '#f44336',
+              transition: 'width 0.3s ease'
+            }}></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

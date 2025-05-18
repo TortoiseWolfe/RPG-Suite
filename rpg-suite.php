@@ -3,7 +3,7 @@
  * Plugin Name: RPG-Suite
  * Plugin URI: https://tortoiseWolfe.com/rpg-suite
  * Description: Complete RPG system for WordPress with character management and BuddyPress integration
- * Version: 1.0.0
+ * Version: 0.1.1
  * Author: TortoiseWolfe
  * License: GPL-2.0-or-later
  * Text Domain: rpg-suite
@@ -15,9 +15,18 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('RPG_SUITE_VERSION', '1.0.0');
+define('RPG_SUITE_VERSION', '0.1.1');
 define('RPG_SUITE_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('RPG_SUITE_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+/**
+ * Load plugin dependencies
+ */
+require_once RPG_SUITE_PLUGIN_DIR . 'includes/Core/class-health-manager.php';
+
+// Initialize the health manager as a global
+global $rpg_suite_health_manager;
+$rpg_suite_health_manager = new RPG_Suite_Health_Manager();
 
 /**
  * Initialize the plugin
@@ -127,6 +136,7 @@ add_action('add_meta_boxes', 'rpg_suite_add_meta_boxes');
  * Character attributes meta box callback
  */
 function rpg_suite_character_attributes_callback($post) {
+    global $rpg_suite_health_manager;
     wp_nonce_field('rpg_suite_save_character', 'rpg_suite_character_nonce');
     
     $class = get_post_meta($post->ID, '_rpg_class', true);
@@ -135,6 +145,11 @@ function rpg_suite_character_attributes_callback($post) {
     $precision = get_post_meta($post->ID, '_rpg_precision', true);
     $intellect = get_post_meta($post->ID, '_rpg_intellect', true);
     $charisma = get_post_meta($post->ID, '_rpg_charisma', true);
+    
+    // Get health data
+    $current_hp = $rpg_suite_health_manager->get_current_health($post->ID);
+    $health_percentage = $rpg_suite_health_manager->get_health_percentage($post->ID);
+    $health_status = $rpg_suite_health_manager->get_health_status($post->ID);
     ?>
     <p>
         <label for="rpg_class"><?php _e('Class:', 'rpg-suite'); ?></label><br>
@@ -163,6 +178,15 @@ function rpg_suite_character_attributes_callback($post) {
         <label for="rpg_charisma"><?php _e('Charisma:', 'rpg-suite'); ?></label><br>
         <input type="number" id="rpg_charisma" name="rpg_charisma" value="<?php echo esc_attr($charisma); ?>" min="1" max="5" class="small-text" />
     </p>
+    <h4><?php _e('Health', 'rpg-suite'); ?></h4>
+    <p>
+        <label for="rpg_current_hp"><?php _e('Current HP:', 'rpg-suite'); ?></label><br>
+        <input type="number" id="rpg_current_hp" name="rpg_current_hp" value="<?php echo esc_attr($current_hp); ?>" min="0" max="100" class="small-text" />
+        <span> / 100 (<?php echo esc_html($health_percentage); ?>%)</span>
+    </p>
+    <p>
+        <strong><?php _e('Status:', 'rpg-suite'); ?></strong> <?php echo esc_html($health_status); ?>
+    </p>
     <?php
 }
 
@@ -170,6 +194,11 @@ function rpg_suite_character_attributes_callback($post) {
  * Save character meta data
  */
 function rpg_suite_save_character_meta($post_id) {
+    global $rpg_suite_health_manager;
+    
+    // Initialize health for new characters (works for WP-CLI and regular creation)
+    $rpg_suite_health_manager->init_character_health($post_id);
+    
     if (!isset($_POST['rpg_suite_character_nonce'])) {
         return;
     }
@@ -206,6 +235,12 @@ function rpg_suite_save_character_meta($post_id) {
             $value = max(1, min(5, $value)); // Ensure value is between 1 and 5
             update_post_meta($post_id, '_rpg_' . $attr, $value);
         }
+    }
+    
+    // Save health
+    if (isset($_POST['rpg_current_hp'])) {
+        global $rpg_suite_health_manager;
+        $rpg_suite_health_manager->set_current_health($post_id, intval($_POST['rpg_current_hp']));
     }
     
     // Clear caches after saving
@@ -321,6 +356,8 @@ function rpg_suite_rest_get_user_characters($request) {
     $result = array();
     
     foreach ($characters as $character) {
+        global $rpg_suite_health_manager;
+        
         $result[] = array(
             'id' => $character->ID,
             'title' => $character->post_title,
@@ -331,6 +368,12 @@ function rpg_suite_rest_get_user_characters($request) {
                 'precision' => intval(get_post_meta($character->ID, '_rpg_precision', true)),
                 'intellect' => intval(get_post_meta($character->ID, '_rpg_intellect', true)),
                 'charisma' => intval(get_post_meta($character->ID, '_rpg_charisma', true)),
+            ),
+            'health' => array(
+                'current' => $rpg_suite_health_manager->get_current_health($character->ID),
+                'max' => RPG_Suite_Health_Manager::MAX_HP,
+                'percentage' => $rpg_suite_health_manager->get_health_percentage($character->ID),
+                'status' => $rpg_suite_health_manager->get_health_status($character->ID),
             ),
         );
     }
@@ -387,11 +430,18 @@ function rpg_suite_buddypress_profile_display() {
         rpg_suite_log("Active character found: {$character->post_title} (ID: {$character->ID})", 'DEBUG');
         
         // PHP fallback display
+        global $rpg_suite_health_manager;
+        
         $class = get_post_meta($character->ID, '_rpg_class', true);
         $fortitude = get_post_meta($character->ID, '_rpg_fortitude', true);
         $precision = get_post_meta($character->ID, '_rpg_precision', true);
         $intellect = get_post_meta($character->ID, '_rpg_intellect', true);
         $charisma = get_post_meta($character->ID, '_rpg_charisma', true);
+        
+        // Get health data
+        $current_hp = $rpg_suite_health_manager->get_current_health($character->ID);
+        $health_percentage = $rpg_suite_health_manager->get_health_percentage($character->ID);
+        $health_status = $rpg_suite_health_manager->get_health_status($character->ID);
         ?>
         <!-- PHP Fallback Display -->
         <div class="rpg-character-display rpg-php-fallback">
@@ -404,6 +454,10 @@ function rpg_suite_buddypress_profile_display() {
                 <p><strong><?php _e('Precision:', 'rpg-suite'); ?></strong> <?php echo esc_html($precision); ?></p>
                 <p><strong><?php _e('Intellect:', 'rpg-suite'); ?></strong> <?php echo esc_html($intellect); ?></p>
                 <p><strong><?php _e('Charisma:', 'rpg-suite'); ?></strong> <?php echo esc_html($charisma); ?></p>
+            </div>
+            <div class="rpg-health">
+                <p><strong><?php _e('Health:', 'rpg-suite'); ?></strong> <?php echo esc_html($current_hp); ?>/<?php echo esc_html(RPG_Suite_Health_Manager::MAX_HP); ?> (<?php echo esc_html($health_percentage); ?>%)</p>
+                <p><strong><?php _e('Status:', 'rpg-suite'); ?></strong> <?php echo esc_html($health_status); ?></p>
             </div>
         </div>
         <?php
