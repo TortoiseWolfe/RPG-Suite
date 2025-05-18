@@ -97,3 +97,60 @@
     height: 100%;
     transition: width 0.3s ease, background-color 0.3s ease;
 }
+
+/* Health controls styles */
+.rpg-health-controls {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+}
+
+.rpg-health-controls h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.rpg-damage-controls,
+.rpg-heal-controls {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rpg-damage-controls label,
+.rpg-heal-controls label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.rpg-damage-controls input,
+.rpg-heal-controls input {
+    width: 60px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.rpg-damage-controls button,
+.rpg-heal-controls button {
+    white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .rpg-damage-controls,
+    .rpg-heal-controls {
+        flex-wrap: wrap;
+    }
+    
+    .rpg-damage-controls button,
+    .rpg-heal-controls button {
+        flex: 1 0 100%;
+        margin-top: 10px;
+    }
+}

@@ -3,7 +3,7 @@
  * Plugin Name: RPG-Suite
  * Plugin URI: https://tortoiseWolfe.com/rpg-suite
  * Description: Complete RPG system for WordPress with character management and BuddyPress integration
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: TortoiseWolfe
  * License: GPL-2.0-or-later
  * Text Domain: rpg-suite
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('RPG_SUITE_VERSION', '0.1.1');
+define('RPG_SUITE_VERSION', '0.1.2');
 define('RPG_SUITE_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('RPG_SUITE_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -23,10 +23,12 @@ define('RPG_SUITE_PLUGIN_URL', plugin_dir_url(__FILE__));
  * Load plugin dependencies
  */
 require_once RPG_SUITE_PLUGIN_DIR . 'includes/Core/class-health-manager.php';
+require_once RPG_SUITE_PLUGIN_DIR . 'includes/Core/class-dice-roller.php';
 
-// Initialize the health manager as a global
-global $rpg_suite_health_manager;
+// Initialize core components as globals
+global $rpg_suite_health_manager, $rpg_suite_dice_roller;
 $rpg_suite_health_manager = new RPG_Suite_Health_Manager();
+$rpg_suite_dice_roller = new RPG_Suite_Dice_Roller();
 
 /**
  * Initialize the plugin
@@ -34,11 +36,14 @@ $rpg_suite_health_manager = new RPG_Suite_Health_Manager();
 function rpg_suite_init() {
     // Register the character post type
     rpg_suite_register_post_type();
-    
-    // Register REST API endpoints
-    add_action('rest_api_init', 'rpg_suite_register_rest_routes');
 }
 add_action('init', 'rpg_suite_init');
+
+// Register REST API endpoints on rest_api_init
+add_action('rest_api_init', 'rpg_suite_register_rest_routes');
+
+// Hook into health change events for real-time updates
+add_action('rpg_suite_health_changed', 'rpg_suite_push_health_update', 10, 2);
 
 /**
  * Debug logging function
@@ -307,11 +312,31 @@ function rpg_suite_get_active_character($user_id) {
 }
 
 /**
+ * Check if current user can modify a character
+ */
+function rpg_suite_can_modify_character($character_id) {
+    $character = get_post($character_id);
+    if (!$character || $character->post_type !== 'rpg_character') {
+        return false;
+    }
+    
+    // Owner can modify their character
+    if ($character->post_author == get_current_user_id()) {
+        return true;
+    }
+    
+    // Admins can modify any character
+    return current_user_can('manage_options');
+}
+
+/**
  * Register REST API routes
  */
 function rpg_suite_register_rest_routes() {
+    rpg_suite_log('Registering REST API routes', 'REST_DEBUG');
+    
     // Get user's characters
-    register_rest_route('rpg-suite/v1', '/users/(?P<id>\d+)/characters', array(
+    $registered = register_rest_route('rpg-suite/v1', '/users/(?P<id>\d+)/characters', array(
         'methods' => 'GET',
         'callback' => 'rpg_suite_rest_get_user_characters',
         'permission_callback' => '__return_true',
@@ -324,8 +349,10 @@ function rpg_suite_register_rest_routes() {
         ),
     ));
     
+    rpg_suite_log('User characters route registration: ' . ($registered ? 'success' : 'failed'), 'REST_DEBUG');
+    
     // Switch active character
-    register_rest_route('rpg-suite/v1', '/characters/switch', array(
+    $registered = register_rest_route('rpg-suite/v1', '/characters/switch', array(
         'methods' => 'POST',
         'callback' => 'rpg_suite_rest_switch_character',
         'permission_callback' => function() {
@@ -335,6 +362,83 @@ function rpg_suite_register_rest_routes() {
             'character_id' => array(
                 'required' => true,
                 'type' => 'integer',
+            ),
+        ),
+    ));
+    
+    rpg_suite_log('Character switch route registration: ' . ($registered ? 'success' : 'failed'), 'REST_DEBUG');
+    
+    // Apply damage to character
+    register_rest_route('rpg-suite/v1', '/characters/(?P<id>\d+)/damage', array(
+        'methods' => 'POST',
+        'callback' => 'rpg_suite_rest_damage_character',
+        'permission_callback' => function($request) {
+            return is_user_logged_in() && rpg_suite_can_modify_character($request['id']);
+        },
+        'args' => array(
+            'id' => array(
+                'validate_callback' => function($param, $request, $key) {
+                    return is_numeric($param);
+                }
+            ),
+            'amount' => array(
+                'required' => true,
+                'type' => 'integer',
+                'validate_callback' => function($param, $request, $key) {
+                    return is_numeric($param) && $param > 0;
+                }
+            ),
+        ),
+    ));
+    
+    // Heal character
+    register_rest_route('rpg-suite/v1', '/characters/(?P<id>\d+)/heal', array(
+        'methods' => 'POST',
+        'callback' => 'rpg_suite_rest_heal_character',
+        'permission_callback' => function($request) {
+            return is_user_logged_in() && rpg_suite_can_modify_character($request['id']);
+        },
+        'args' => array(
+            'id' => array(
+                'validate_callback' => function($param, $request, $key) {
+                    return is_numeric($param);
+                }
+            ),
+            'amount' => array(
+                'required' => true,
+                'type' => 'integer',
+                'validate_callback' => function($param, $request, $key) {
+                    return is_numeric($param) && $param > 0;
+                }
+            ),
+        ),
+    ));
+    
+    // Roll dice for character
+    register_rest_route('rpg-suite/v1', '/characters/(?P<id>\d+)/roll', array(
+        'methods' => 'POST',
+        'callback' => 'rpg_suite_rest_roll_dice',
+        'permission_callback' => function($request) {
+            return is_user_logged_in();
+        },
+        'args' => array(
+            'id' => array(
+                'validate_callback' => function($param, $request, $key) {
+                    return is_numeric($param);
+                }
+            ),
+            'type' => array(
+                'required' => true,
+                'type' => 'string',
+                'enum' => array('damage', 'heal', 'skill'),
+            ),
+            'skill' => array(
+                'type' => 'string',
+                'enum' => array('fortitude', 'precision', 'intellect', 'charisma'),
+            ),
+            'difficulty' => array(
+                'type' => 'integer',
+                'default' => 10,
             ),
         ),
     ));
@@ -410,6 +514,134 @@ function rpg_suite_rest_switch_character($request) {
     rpg_suite_log("Character switch complete for ID: $character_id", 'API');
     
     return new WP_REST_Response(array('success' => true), 200);
+}
+
+/**
+ * REST callback: Apply damage to character
+ */
+function rpg_suite_rest_damage_character($request) {
+    global $rpg_suite_health_manager;
+    
+    $character_id = $request['id'];
+    $damage_amount = $request['amount'];
+    
+    $character = get_post($character_id);
+    if (!$character || $character->post_type !== 'rpg_character') {
+        return new WP_Error('invalid_character', 'Invalid character ID', array('status' => 400));
+    }
+    
+    rpg_suite_log("Applying $damage_amount damage to character ID: $character_id", 'API');
+    
+    // Apply damage
+    $new_health = $rpg_suite_health_manager->damage_character($character_id, $damage_amount);
+    
+    // Clear caches
+    rpg_suite_clear_character_caches($character_id);
+    
+    rpg_suite_log("Character $character_id damaged. New health: $new_health", 'API');
+    
+    return new WP_REST_Response(array(
+        'success' => true,
+        'health' => array(
+            'current' => $new_health,
+            'max' => RPG_Suite_Health_Manager::MAX_HP,
+            'percentage' => $rpg_suite_health_manager->get_health_percentage($character_id),
+            'status' => $rpg_suite_health_manager->get_health_status($character_id),
+        )
+    ), 200);
+}
+
+/**
+ * REST callback: Heal character
+ */
+function rpg_suite_rest_heal_character($request) {
+    global $rpg_suite_health_manager;
+    
+    $character_id = $request['id'];
+    $heal_amount = $request['amount'];
+    
+    $character = get_post($character_id);
+    if (!$character || $character->post_type !== 'rpg_character') {
+        return new WP_Error('invalid_character', 'Invalid character ID', array('status' => 400));
+    }
+    
+    rpg_suite_log("Healing character ID: $character_id by $heal_amount", 'API');
+    
+    // Apply healing
+    $new_health = $rpg_suite_health_manager->heal_character($character_id, $heal_amount);
+    
+    // Clear caches
+    rpg_suite_clear_character_caches($character_id);
+    
+    rpg_suite_log("Character $character_id healed. New health: $new_health", 'API');
+    
+    return new WP_REST_Response(array(
+        'success' => true,
+        'health' => array(
+            'current' => $new_health,
+            'max' => RPG_Suite_Health_Manager::MAX_HP,
+            'percentage' => $rpg_suite_health_manager->get_health_percentage($character_id),
+            'status' => $rpg_suite_health_manager->get_health_status($character_id),
+        )
+    ), 200);
+}
+
+/**
+ * REST callback: Roll dice for character
+ */
+function rpg_suite_rest_roll_dice($request) {
+    global $rpg_suite_dice_roller;
+    
+    $character_id = $request['id'];
+    $type = $request['type'];
+    
+    $character = get_post($character_id);
+    if (!$character || $character->post_type !== 'rpg_character') {
+        return new WP_Error('invalid_character', 'Invalid character ID', array('status' => 400));
+    }
+    
+    rpg_suite_log("Rolling $type for character ID: $character_id", 'DICE');
+    
+    switch ($type) {
+        case 'damage':
+            $result = $rpg_suite_dice_roller->roll_damage($character_id);
+            return new WP_REST_Response(array(
+                'success' => true,
+                'type' => 'damage',
+                'result' => $result,
+            ), 200);
+            
+        case 'heal':
+            $result = $rpg_suite_dice_roller->roll_healing($character_id);
+            return new WP_REST_Response(array(
+                'success' => true,
+                'type' => 'heal',
+                'result' => $result,
+            ), 200);
+            
+        case 'skill':
+            if (!isset($request['skill'])) {
+                return new WP_Error('missing_skill', 'Skill type is required for skill checks', array('status' => 400));
+            }
+            
+            $skill = $request['skill'];
+            $difficulty = $request['difficulty'] ?? 10;
+            
+            $result = $rpg_suite_dice_roller->skill_check($character_id, $skill, $difficulty);
+            
+            if (isset($result['error'])) {
+                return new WP_Error('roll_error', $result['error'], array('status' => 400));
+            }
+            
+            return new WP_REST_Response(array(
+                'success' => true,
+                'type' => 'skill',
+                'result' => $result,
+            ), 200);
+            
+        default:
+            return new WP_Error('invalid_type', 'Invalid roll type', array('status' => 400));
+    }
 }
 
 /**
@@ -543,6 +775,20 @@ function rpg_suite_enqueue_scripts() {
     );
 }
 add_action('wp_enqueue_scripts', 'rpg_suite_enqueue_scripts');
+
+/**
+ * Push health updates for real-time display
+ */
+function rpg_suite_push_health_update($character_id, $new_health) {
+    global $rpg_suite_health_manager;
+    
+    // This could be expanded to use websockets or server-sent events
+    // For now, we'll rely on React polling or manual refreshes
+    rpg_suite_log("Health update broadcast for character $character_id: $new_health HP", 'HEALTH_EVENT');
+    
+    // Clear caches to ensure fresh data
+    rpg_suite_clear_character_caches($character_id);
+}
 
 /**
  * Activation hook

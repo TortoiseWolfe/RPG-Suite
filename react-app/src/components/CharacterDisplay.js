@@ -1,10 +1,12 @@
 import { useState, useEffect } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
+import HealthControls from './HealthControls';
 
 function CharacterDisplay() {
   const [characters, setCharacters] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeCharacter, setActiveCharacter] = useState(null);
   
   // Get user ID from window or data attribute
   const userId = window.rpgSuiteData?.currentUser || 
@@ -24,6 +26,8 @@ function CharacterDisplay() {
     apiFetch({ path: `/rpg-suite/v1/users/${userId}/characters` })
       .then(data => {
         setCharacters(data);
+        const active = data?.find(char => char.active);
+        setActiveCharacter(active);
         setIsLoading(false);
       })
       .catch(err => {
@@ -32,11 +36,17 @@ function CharacterDisplay() {
       });
   }, [userId]);
   
+  const handleHealthChange = (newHealth) => {
+    if (activeCharacter) {
+      setActiveCharacter({
+        ...activeCharacter,
+        health: newHealth
+      });
+    }
+  };
+  
   if (isLoading) return <div>Loading character...</div>;
   if (error) return <div>Error loading character: {error.message}</div>;
-  
-  // Find active character
-  const activeCharacter = characters?.find(char => char.active);
   
   if (!activeCharacter) {
     return <div>No active character</div>;
@@ -75,6 +85,14 @@ function CharacterDisplay() {
             }}></div>
           </div>
         </div>
+      )}
+      
+      {/* Only show health controls for the character owner */}
+      {userId == window.rpgSuiteData?.currentUser && (
+        <HealthControls 
+          character={activeCharacter} 
+          onHealthChange={handleHealthChange}
+        />
       )}
     </div>
   );

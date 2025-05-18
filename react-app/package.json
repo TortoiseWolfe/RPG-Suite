@@ -1,6 +1,6 @@
 {
   "name": "rpg-suite-react",
-  "version": "1.0.0",
+  "version": "0.1.2",
   "description": "React frontend for RPG-Suite WordPress plugin",
   "main": "build/index.js",
   "scripts": {
