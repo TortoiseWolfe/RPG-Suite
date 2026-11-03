@@ -21,8 +21,8 @@ class RPG_Suite_Dice_Roller {
 	 * @return int The result of the roll (1-7).
 	 */
 	public function roll_d7() {
-		// Using mt_rand for better randomness
-		return mt_rand(1, 7);
+		// wp_rand() is WordPress's recommended random number function.
+		return wp_rand( 1, 7 );
 	}
 
 	/**

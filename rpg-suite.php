@@ -1,11 +1,15 @@
 <?php
 /**
  * Plugin Name: RPG-Suite
- * Plugin URI: https://tortoiseWolfe.com/rpg-suite
+ * Plugin URI: https://github.com/TortoiseWolfe/RPG-Suite
  * Description: Complete RPG system for WordPress with character management and BuddyPress integration
- * Version: 0.1.2
+ * Version: 0.1.3
  * Author: TortoiseWolfe
+ * Author URI: https://turtlewolfe.com
  * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Requires at least: 6.0
+ * Requires PHP: 7.4
  * Text Domain: rpg-suite
  */
 
@@ -15,7 +19,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('RPG_SUITE_VERSION', '0.1.2');
+define('RPG_SUITE_VERSION', '0.1.3');
 define('RPG_SUITE_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('RPG_SUITE_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -49,10 +53,15 @@ add_action('rpg_suite_health_changed', 'rpg_suite_push_health_update', 10, 2);
  * Debug logging function
  */
 function rpg_suite_log($message, $tag = 'INFO') {
+    // Only write when the site owner has turned on WordPress debug logging.
+    if (!defined('WP_DEBUG') || !WP_DEBUG || !defined('WP_DEBUG_LOG') || !WP_DEBUG_LOG) {
+        return;
+    }
     $log_file = WP_CONTENT_DIR . '/debug.log';
-    $timestamp = date('[Y-m-d H:i:s]');
+    $timestamp = gmdate('[Y-m-d H:i:s]');
     $log_message = "$timestamp [$tag] $message" . PHP_EOL;
-    error_log($log_message, 3, $log_file);
+    // Reached only when WP_DEBUG and WP_DEBUG_LOG are on (see the check above).
+    error_log($log_message, 3, $log_file); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 }
 
 /**
@@ -157,40 +166,40 @@ function rpg_suite_character_attributes_callback($post) {
     $health_status = $rpg_suite_health_manager->get_health_status($post->ID);
     ?>
     <p>
-        <label for="rpg_class"><?php _e('Class:', 'rpg-suite'); ?></label><br>
+        <label for="rpg_class"><?php esc_html_e('Class:', 'rpg-suite'); ?></label><br>
         <input type="text" id="rpg_class" name="rpg_class" value="<?php echo esc_attr($class); ?>" class="widefat" />
     </p>
     <p>
         <label for="rpg_active">
             <input type="checkbox" id="rpg_active" name="rpg_active" value="1" <?php checked($active, '1'); ?> />
-            <?php _e('Active Character', 'rpg-suite'); ?>
+            <?php esc_html_e('Active Character', 'rpg-suite'); ?>
         </label>
     </p>
-    <h4><?php _e('Attributes', 'rpg-suite'); ?></h4>
+    <h4><?php esc_html_e('Attributes', 'rpg-suite'); ?></h4>
     <p>
-        <label for="rpg_fortitude"><?php _e('Fortitude:', 'rpg-suite'); ?></label><br>
+        <label for="rpg_fortitude"><?php esc_html_e('Fortitude:', 'rpg-suite'); ?></label><br>
         <input type="number" id="rpg_fortitude" name="rpg_fortitude" value="<?php echo esc_attr($fortitude); ?>" min="1" max="5" class="small-text" />
     </p>
     <p>
-        <label for="rpg_precision"><?php _e('Precision:', 'rpg-suite'); ?></label><br>
+        <label for="rpg_precision"><?php esc_html_e('Precision:', 'rpg-suite'); ?></label><br>
         <input type="number" id="rpg_precision" name="rpg_precision" value="<?php echo esc_attr($precision); ?>" min="1" max="5" class="small-text" />
     </p>
     <p>
-        <label for="rpg_intellect"><?php _e('Intellect:', 'rpg-suite'); ?></label><br>
+        <label for="rpg_intellect"><?php esc_html_e('Intellect:', 'rpg-suite'); ?></label><br>
         <input type="number" id="rpg_intellect" name="rpg_intellect" value="<?php echo esc_attr($intellect); ?>" min="1" max="5" class="small-text" />
     </p>
     <p>
-        <label for="rpg_charisma"><?php _e('Charisma:', 'rpg-suite'); ?></label><br>
+        <label for="rpg_charisma"><?php esc_html_e('Charisma:', 'rpg-suite'); ?></label><br>
         <input type="number" id="rpg_charisma" name="rpg_charisma" value="<?php echo esc_attr($charisma); ?>" min="1" max="5" class="small-text" />
     </p>
-    <h4><?php _e('Health', 'rpg-suite'); ?></h4>
+    <h4><?php esc_html_e('Health', 'rpg-suite'); ?></h4>
     <p>
-        <label for="rpg_current_hp"><?php _e('Current HP:', 'rpg-suite'); ?></label><br>
+        <label for="rpg_current_hp"><?php esc_html_e('Current HP:', 'rpg-suite'); ?></label><br>
         <input type="number" id="rpg_current_hp" name="rpg_current_hp" value="<?php echo esc_attr($current_hp); ?>" min="0" max="100" class="small-text" />
         <span> / 100 (<?php echo esc_html($health_percentage); ?>%)</span>
     </p>
     <p>
-        <strong><?php _e('Status:', 'rpg-suite'); ?></strong> <?php echo esc_html($health_status); ?>
+        <strong><?php esc_html_e('Status:', 'rpg-suite'); ?></strong> <?php echo esc_html($health_status); ?>
     </p>
     <?php
 }
@@ -208,7 +217,7 @@ function rpg_suite_save_character_meta($post_id) {
         return;
     }
     
-    if (!wp_verify_nonce($_POST['rpg_suite_character_nonce'], 'rpg_suite_save_character')) {
+    if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['rpg_suite_character_nonce'])), 'rpg_suite_save_character')) {
         return;
     }
     
@@ -222,7 +231,7 @@ function rpg_suite_save_character_meta($post_id) {
     
     // Save character data
     if (isset($_POST['rpg_class'])) {
-        update_post_meta($post_id, '_rpg_class', sanitize_text_field($_POST['rpg_class']));
+        update_post_meta($post_id, '_rpg_class', sanitize_text_field(wp_unslash($_POST['rpg_class'])));
     }
     
     // Handle active character
@@ -236,7 +245,7 @@ function rpg_suite_save_character_meta($post_id) {
     // Save attributes
     foreach (array('fortitude', 'precision', 'intellect', 'charisma') as $attr) {
         if (isset($_POST['rpg_' . $attr])) {
-            $value = intval($_POST['rpg_' . $attr]);
+            $value = intval(sanitize_text_field(wp_unslash($_POST['rpg_' . $attr])));
             $value = max(1, min(5, $value)); // Ensure value is between 1 and 5
             update_post_meta($post_id, '_rpg_' . $attr, $value);
         }
@@ -245,7 +254,7 @@ function rpg_suite_save_character_meta($post_id) {
     // Save health
     if (isset($_POST['rpg_current_hp'])) {
         global $rpg_suite_health_manager;
-        $rpg_suite_health_manager->set_current_health($post_id, intval($_POST['rpg_current_hp']));
+        $rpg_suite_health_manager->set_current_health($post_id, intval(sanitize_text_field(wp_unslash($_POST['rpg_current_hp']))));
     }
     
     // Clear caches after saving
@@ -268,7 +277,7 @@ function rpg_suite_deactivate_user_characters($current_post_id) {
         'post_type' => 'rpg_character',
         'author' => $user_id,
         'posts_per_page' => -1,
-        'post__not_in' => array($current_post_id),
+        'post__not_in' => array($current_post_id), // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_post__not_in -- one user's own characters, a short list.
     );
     
     $characters = get_posts($args);
@@ -293,7 +302,7 @@ function rpg_suite_get_active_character($user_id) {
         'post_type' => 'rpg_character',
         'author' => $user_id,
         'posts_per_page' => 1,
-        'meta_query' => array(
+        'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- limited to one author and one result, and cached.
             array(
                 'key' => '_rpg_active',
                 'value' => '1',
@@ -679,17 +688,17 @@ function rpg_suite_buddypress_profile_display() {
         <div class="rpg-character-display rpg-php-fallback">
             <h3><?php echo esc_html($character->post_title); ?></h3>
             <?php if ($class): ?>
-                <p><strong><?php _e('Class:', 'rpg-suite'); ?></strong> <?php echo esc_html($class); ?></p>
+                <p><strong><?php esc_html_e('Class:', 'rpg-suite'); ?></strong> <?php echo esc_html($class); ?></p>
             <?php endif; ?>
             <div class="rpg-attributes">
-                <p><strong><?php _e('Fortitude:', 'rpg-suite'); ?></strong> <?php echo esc_html($fortitude); ?></p>
-                <p><strong><?php _e('Precision:', 'rpg-suite'); ?></strong> <?php echo esc_html($precision); ?></p>
-                <p><strong><?php _e('Intellect:', 'rpg-suite'); ?></strong> <?php echo esc_html($intellect); ?></p>
-                <p><strong><?php _e('Charisma:', 'rpg-suite'); ?></strong> <?php echo esc_html($charisma); ?></p>
+                <p><strong><?php esc_html_e('Fortitude:', 'rpg-suite'); ?></strong> <?php echo esc_html($fortitude); ?></p>
+                <p><strong><?php esc_html_e('Precision:', 'rpg-suite'); ?></strong> <?php echo esc_html($precision); ?></p>
+                <p><strong><?php esc_html_e('Intellect:', 'rpg-suite'); ?></strong> <?php echo esc_html($intellect); ?></p>
+                <p><strong><?php esc_html_e('Charisma:', 'rpg-suite'); ?></strong> <?php echo esc_html($charisma); ?></p>
             </div>
             <div class="rpg-health">
-                <p><strong><?php _e('Health:', 'rpg-suite'); ?></strong> <?php echo esc_html($current_hp); ?>/<?php echo esc_html(RPG_Suite_Health_Manager::MAX_HP); ?> (<?php echo esc_html($health_percentage); ?>%)</p>
-                <p><strong><?php _e('Status:', 'rpg-suite'); ?></strong> <?php echo esc_html($health_status); ?></p>
+                <p><strong><?php esc_html_e('Health:', 'rpg-suite'); ?></strong> <?php echo esc_html($current_hp); ?>/<?php echo esc_html(RPG_Suite_Health_Manager::MAX_HP); ?> (<?php echo esc_html($health_percentage); ?>%)</p>
+                <p><strong><?php esc_html_e('Status:', 'rpg-suite'); ?></strong> <?php echo esc_html($health_status); ?></p>
             </div>
         </div>
         <?php
